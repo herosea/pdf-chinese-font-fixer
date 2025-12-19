@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle } from 'lucide-react';
 import { PdfPage, ImageQuality } from './types';
 import { extractImagesFromPdf, generatePdfFromImages } from './services/pdfService';
 import { enhancePageImage } from './services/geminiService';
@@ -13,6 +13,9 @@ const App: React.FC = () => {
   const [isApiKeyReady, setIsApiKeyReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  
+  // Ref to hold the AbortController
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,13 +45,18 @@ const App: React.FC = () => {
     setIsProcessing(true);
     setError(null);
 
+    // Create a new AbortController for this batch
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     // Create a copy of pages to track updates
     const updatedPages = [...pages];
 
-    // Process sequentially to handle potential rate limits elegantly, 
-    // or we could do small batches. Given 4K genAI, sequential or small batch is safer.
-    // Let's do sequential for simplicity and reliability with large model calls.
+    // Process sequentially
     for (let i = 0; i < updatedPages.length; i++) {
+      // Check for abort before starting iteration
+      if (controller.signal.aborted) break;
+
       const page = updatedPages[i];
       if (page.status === 'completed') continue; // Skip already done
 
@@ -57,16 +65,31 @@ const App: React.FC = () => {
       setPages([...updatedPages]);
 
       try {
-        const enhancedImage = await enhancePageImage(page.originalImage, quality, page.aspectRatio);
+        const enhancedImage = await enhancePageImage(
+          page.originalImage, 
+          quality, 
+          page.aspectRatio, 
+          controller.signal
+        );
+        
         updatedPages[i] = { 
           ...page, 
           processedImage: enhancedImage, 
           status: 'completed' 
         };
-      } catch (err) {
+      } catch (err: any) {
+        // Handle AbortError specifically
+        if (err.name === 'AbortError' || controller.signal.aborted) {
+          console.log(`Processing aborted for page ${page.pageNumber}`);
+          // Revert status to pending if aborted so it can be retried
+          updatedPages[i] = { ...page, status: 'pending' };
+          setPages([...updatedPages]);
+          break; // Exit the loop entirely
+        }
+
         console.error(`Error processing page ${page.pageNumber}:`, err);
         updatedPages[i] = { ...page, status: 'error' };
-        // Don't stop the whole queue, just mark this one as error
+        // Continue to next page if it's a regular error
       }
       
       // Update state after each page
@@ -74,6 +97,13 @@ const App: React.FC = () => {
     }
 
     setIsProcessing(false);
+    abortControllerRef.current = null;
+  };
+
+  const handleStopProcessing = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
   };
 
   const handleDownload = () => {
@@ -203,31 +233,36 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                <button
-                  onClick={processPages}
-                  disabled={!isApiKeyReady || pages.length === 0 || isProcessing || isAllDone}
-                  className={`w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all
-                    ${!isApiKeyReady || pages.length === 0 || isProcessing || isAllDone
-                      ? 'bg-gray-300 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform active:scale-95'
-                    }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Processing...
-                    </>
-                  ) : isAllDone ? (
-                    'All Pages Processed'
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      Start Repair
-                    </>
-                  )}
-                </button>
+                {!isProcessing ? (
+                  <button
+                    onClick={processPages}
+                    disabled={!isApiKeyReady || pages.length === 0 || isAllDone}
+                    className={`w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all
+                      ${!isApiKeyReady || pages.length === 0 || isAllDone
+                        ? 'bg-gray-300 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform active:scale-95'
+                      }`}
+                  >
+                    {isAllDone ? (
+                      'All Pages Processed'
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Start Repair
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStopProcessing}
+                    className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all bg-red-600 hover:bg-red-700 hover:shadow-lg transform active:scale-95"
+                  >
+                    <StopCircle className="w-4 h-4 mr-2" />
+                    Stop Processing
+                  </button>
+                )}
 
-                {stats.completed > 0 && (
+                {stats.completed > 0 && !isProcessing && (
                   <button
                     onClick={handleDownload}
                     className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"

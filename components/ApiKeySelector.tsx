@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Key, ExternalLink, RefreshCw } from 'lucide-react';
+import { Key, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface ApiKeySelectorProps {
   onReady: () => void;
@@ -8,16 +8,41 @@ interface ApiKeySelectorProps {
 const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
   const [hasKey, setHasKey] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isAiStudio, setIsAiStudio] = useState(false);
 
   const checkKey = async () => {
     setLoading(true);
-    // Use type assertion to avoid conflicts with globally defined Window types
+    let keyReady = false;
+    let aiStudioAvailable = false;
+
+    // 1. Check AI Studio environment bridge
     if ((window as any).aistudio) {
-      const selected = await (window as any).aistudio.hasSelectedApiKey();
-      setHasKey(selected);
-      if (selected) {
-        onReady();
+      aiStudioAvailable = true;
+      try {
+        const selected = await (window as any).aistudio.hasSelectedApiKey();
+        if (selected) {
+          keyReady = true;
+        }
+      } catch (e) {
+        console.error("Error checking AI Studio key:", e);
       }
+    }
+
+    // 2. Fallback: Check standard environment variable
+    // We safely check process.env to avoid reference errors in some browser environments
+    try {
+      if (!keyReady && typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+        keyReady = true;
+      }
+    } catch (e) {
+      // Ignore process access errors
+    }
+
+    setIsAiStudio(aiStudioAvailable);
+    setHasKey(keyReady);
+    
+    if (keyReady) {
+      onReady();
     }
     setLoading(false);
   };
@@ -29,9 +54,12 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
 
   const handleSelectKey = async () => {
     if ((window as any).aistudio) {
-      await (window as any).aistudio.openSelectKey();
-      // Assume success after closing dialog as per instructions, or re-check
-      checkKey();
+      try {
+        await (window as any).aistudio.openSelectKey();
+        checkKey();
+      } catch (e) {
+        console.error("Error opening key selector:", e);
+      }
     }
   };
 
@@ -53,17 +81,39 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
         API Key Required
       </h3>
-      <p className="text-gray-600 mb-6 max-w-md mx-auto">
-        To use the <b>Gemini 3 Pro Image Preview</b> model for high-fidelity 4K PDF repair, you must select a paid API key from your Google Cloud Project.
-      </p>
+      
+      {isAiStudio ? (
+        <p className="text-gray-600 mb-6 max-w-md mx-auto">
+          To use the <b>Gemini 3 Pro</b> model, you must select a paid API key from your Google Cloud Project.
+        </p>
+      ) : (
+        <div className="mb-6 max-w-lg mx-auto">
+          <p className="text-gray-600 mb-4">
+             The <b>Gemini 3 Pro</b> model requires a paid API key.
+          </p>
+          <div className="bg-white border border-orange-200 rounded p-4 text-left flex items-start gap-3">
+             <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+             <div className="text-sm text-gray-700">
+                <p className="font-medium mb-1">Environment Configuration Missing</p>
+                <p>
+                  Since you are not running in Google AI Studio, the "Select API Key" feature is unavailable. 
+                  Please configure the <code>API_KEY</code> environment variable in your deployment settings (e.g., Google Cloud Run, Vercel, etc.).
+                </p>
+             </div>
+          </div>
+        </div>
+      )}
       
       <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <button
-          onClick={handleSelectKey}
-          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          Select API Key
-        </button>
+        {isAiStudio && (
+          <button
+            onClick={handleSelectKey}
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            Select API Key
+          </button>
+        )}
+        
         <button 
           onClick={checkKey}
           className="inline-flex items-center px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors"

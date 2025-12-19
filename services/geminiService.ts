@@ -73,55 +73,85 @@ const getClosestAspectRatio = (ratio: number): "1:1" | "3:4" | "4:3" | "9:16" | 
 export const enhancePageImage = async (
   base64Image: string, 
   quality: ImageQuality,
-  aspectRatio: number
+  aspectRatio: number,
+  signal?: AbortSignal
 ): Promise<string> => {
-  // We need to reinstantiate inside the call to ensure we pick up the latest selected key if updated
-  // Users MUST select their own API key for gemini-3-pro-image-preview
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  // Extract pure base64 data (remove "data:image/jpeg;base64," prefix if present)
-  const base64Data = base64Image.split(',')[1] || base64Image;
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
 
-  const targetAspectRatio = getClosestAspectRatio(aspectRatio);
+  // Wrap the API call in a promise that races against the abort signal
+  return new Promise(async (resolve, reject) => {
+    const abortHandler = () => {
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
 
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: 'image/jpeg',
-              data: base64Data
+    if (signal) {
+      signal.addEventListener('abort', abortHandler);
+    }
+
+    try {
+      // We need to reinstantiate inside the call to ensure we pick up the latest selected key if updated
+      // Users MUST select their own API key for gemini-3-pro-image-preview
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      
+      // Extract pure base64 data (remove "data:image/jpeg;base64," prefix if present)
+      const base64Data = base64Image.split(',')[1] || base64Image;
+
+      const targetAspectRatio = getClosestAspectRatio(aspectRatio);
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-image-preview',
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: base64Data
+              }
+            },
+            {
+              text: SYSTEM_PROMPT
             }
-          },
-          {
-            text: SYSTEM_PROMPT
+          ]
+        },
+        config: {
+          imageConfig: {
+            imageSize: quality, // 1K, 2K, or 4K
+            aspectRatio: targetAspectRatio
           }
-        ]
-      },
-      config: {
-        imageConfig: {
-          imageSize: quality, // 1K, 2K, or 4K
-          aspectRatio: targetAspectRatio
+        }
+      });
+
+      // If aborted during await, the event listener would have already rejected.
+      // However, we should check just in case the promise resolves after abort but before the event loop processes the abort?
+      // The race structure handles it, but good to be safe.
+      if (signal?.aborted) {
+        return; // Already rejected by handler
+      }
+
+      // Extract the image from the response
+      if (response.candidates?.[0]?.content?.parts) {
+        for (const part of response.candidates[0].content.parts) {
+          if (part.inlineData && part.inlineData.data) {
+            resolve(`data:image/png;base64,${part.inlineData.data}`);
+            return;
+          }
         }
       }
-    });
+      
+      reject(new Error("No image data found in response"));
 
-    // Extract the image from the response
-    // The response might contain text or inlineData. We look for inlineData.
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData && part.inlineData.data) {
-          return `data:image/png;base64,${part.inlineData.data}`;
-        }
+    } catch (error) {
+      // If the error is not because of our manual abort (i.e. it came from the API), reject it.
+      if (!signal?.aborted) {
+        console.error("Error enhancing image:", error);
+        reject(error);
+      }
+    } finally {
+      if (signal) {
+        signal.removeEventListener('abort', abortHandler);
       }
     }
-    
-    throw new Error("No image data found in response");
-
-  } catch (error) {
-    console.error("Error enhancing image:", error);
-    throw error;
-  }
+  });
 };
