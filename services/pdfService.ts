@@ -49,7 +49,8 @@ export const extractImagesFromPdf = async (file: File): Promise<PdfPage[]> => {
       status: 'pending',
       width: viewport.width,
       height: viewport.height,
-      aspectRatio: viewport.width / viewport.height
+      aspectRatio: viewport.width / viewport.height,
+      customPrompt: ''
     });
   }
 

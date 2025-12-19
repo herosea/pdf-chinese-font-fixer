@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle } from 'lucide-react';
+import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle, MessageSquarePlus } from 'lucide-react';
 import { PdfPage, ImageQuality } from './types';
 import { extractImagesFromPdf, generatePdfFromImages } from './services/pdfService';
 import { enhancePageImage } from './services/geminiService';
@@ -10,6 +10,7 @@ const App: React.FC = () => {
   const [pages, setPages] = useState<PdfPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [quality, setQuality] = useState<ImageQuality>('4K');
+  const [customPrompt, setCustomPrompt] = useState<string>('');
   const [isApiKeyReady, setIsApiKeyReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -39,6 +40,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdatePagePrompt = (pageNumber: number, prompt: string) => {
+    setPages(prev => prev.map(p => 
+      p.pageNumber === pageNumber ? { ...p, customPrompt: prompt } : p
+    ));
+  };
+
   const processPages = async () => {
     if (pages.length === 0 || !isApiKeyReady) return;
     
@@ -64,12 +71,17 @@ const App: React.FC = () => {
       updatedPages[i] = { ...page, status: 'processing' };
       setPages([...updatedPages]);
 
+      // Combine global prompt with page specific prompt
+      const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
+      const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
+
       try {
         const enhancedImage = await enhancePageImage(
           page.originalImage, 
           quality, 
           page.aspectRatio, 
-          controller.signal
+          controller.signal,
+          combinedPrompt
         );
         
         updatedPages[i] = { 
@@ -100,7 +112,7 @@ const App: React.FC = () => {
     abortControllerRef.current = null;
   };
 
-  const handleRetryPage = async (pageNumber: number) => {
+  const handleProcessSinglePage = async (pageNumber: number) => {
     if (isProcessing || !isApiKeyReady) return;
     
     const pageIndex = pages.findIndex(p => p.pageNumber === pageNumber);
@@ -121,11 +133,17 @@ const App: React.FC = () => {
 
     try {
         const page = pages[pageIndex];
+        
+        // Combine global prompt with page specific prompt
+        const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
+        const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
+
         const enhancedImage = await enhancePageImage(
             page.originalImage,
             quality,
             page.aspectRatio,
-            controller.signal
+            controller.signal,
+            combinedPrompt
         );
 
         setPages(prev => {
@@ -254,7 +272,7 @@ const App: React.FC = () => {
                 Output Quality
               </h2>
               
-              <div className="space-y-3">
+              <div className="space-y-3 mb-6">
                  <p className="text-sm text-gray-500">
                    Select the resolution for the reconstructed pages. Higher quality takes longer to generate.
                  </p>
@@ -274,6 +292,23 @@ const App: React.FC = () => {
                       </button>
                     ))}
                  </div>
+              </div>
+
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 pt-4 border-t border-gray-100">
+                <MessageSquarePlus className="w-5 h-5 text-gray-500" />
+                Global Instructions
+              </h2>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">
+                  Optional: Add requests applied to all pages (e.g., "Make text bolder").
+                </p>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  disabled={isProcessing}
+                  placeholder="Enter global instructions here..."
+                  className="w-full h-24 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                />
               </div>
             </div>
 
@@ -342,7 +377,11 @@ const App: React.FC = () => {
                   <p>Upload a PDF to view pages</p>
                </div>
             ) : (
-              <ProcessingQueue pages={pages} onRetry={handleRetryPage} />
+              <ProcessingQueue 
+                pages={pages} 
+                onRetry={handleProcessSinglePage} 
+                onUpdatePagePrompt={handleUpdatePagePrompt} 
+              />
             )}
           </div>
 

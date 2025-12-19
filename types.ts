@@ -6,6 +6,7 @@ export interface PdfPage {
   width: number;
   height: number;
   aspectRatio: number;
+  customPrompt?: string;
 }
 
 export type ImageQuality = '1K' | '2K' | '4K';

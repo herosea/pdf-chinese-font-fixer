@@ -92,7 +92,8 @@ export const enhancePageImage = async (
   base64Image: string, 
   quality: ImageQuality,
   aspectRatio: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  customPrompt?: string
 ): Promise<string> => {
   if (signal?.aborted) {
     throw new DOMException('Aborted', 'AbortError');
@@ -102,6 +103,12 @@ export const enhancePageImage = async (
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key is missing. Please set the API_KEY environment variable.");
+  }
+
+  // Construct final prompt
+  let finalPrompt = SYSTEM_PROMPT;
+  if (customPrompt && customPrompt.trim().length > 0) {
+    finalPrompt += `\n\n## 用户额外指令 (User Additional Instructions)\n注意：请在修复图像的同时，严格遵守以下额外指令：\n${customPrompt}`;
   }
 
   // We wrap the operation in a loop to handle transient network errors (like "Unexpected end of JSON input")
@@ -133,7 +140,7 @@ export const enhancePageImage = async (
               }
             },
             {
-              text: SYSTEM_PROMPT
+              text: finalPrompt
             }
           ]
         },
