@@ -100,6 +100,65 @@ const App: React.FC = () => {
     abortControllerRef.current = null;
   };
 
+  const handleRetryPage = async (pageNumber: number) => {
+    if (isProcessing || !isApiKeyReady) return;
+    
+    const pageIndex = pages.findIndex(p => p.pageNumber === pageNumber);
+    if (pageIndex === -1) return;
+
+    setIsProcessing(true);
+    setError(null);
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // Optimistic update
+    setPages(prev => {
+        const next = [...prev];
+        next[pageIndex] = { ...next[pageIndex], status: 'processing' };
+        return next;
+    });
+
+    try {
+        const page = pages[pageIndex];
+        const enhancedImage = await enhancePageImage(
+            page.originalImage,
+            quality,
+            page.aspectRatio,
+            controller.signal
+        );
+
+        setPages(prev => {
+            const next = [...prev];
+            next[pageIndex] = { 
+                ...next[pageIndex], 
+                processedImage: enhancedImage, 
+                status: 'completed' 
+            };
+            return next;
+        });
+    } catch (err: any) {
+        if (err.name !== 'AbortError') {
+             console.error(`Error retrying page ${pageNumber}:`, err);
+             setPages(prev => {
+                const next = [...prev];
+                next[pageIndex] = { ...next[pageIndex], status: 'error' };
+                return next;
+            });
+        } else {
+             // If aborted during retry, revert to pending so it can be picked up by batch or retry again
+             setPages(prev => {
+                const next = [...prev];
+                next[pageIndex] = { ...next[pageIndex], status: 'pending' };
+                return next;
+            });
+        }
+    } finally {
+        setIsProcessing(false);
+        abortControllerRef.current = null;
+    }
+  };
+
   const handleStopProcessing = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -108,7 +167,7 @@ const App: React.FC = () => {
 
   const handleDownload = () => {
     try {
-      generatePdfFromImages(pages);
+      generatePdfFromImages(pages, fileName);
     } catch (err) {
       console.error(err);
       setError("Failed to generate PDF.");
@@ -283,7 +342,7 @@ const App: React.FC = () => {
                   <p>Upload a PDF to view pages</p>
                </div>
             ) : (
-              <ProcessingQueue pages={pages} />
+              <ProcessingQueue pages={pages} onRetry={handleRetryPage} />
             )}
           </div>
 

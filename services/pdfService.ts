@@ -8,7 +8,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@${pdfjsLib.v
 
 export const extractImagesFromPdf = async (file: File): Promise<PdfPage[]> => {
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  
+  // Configure CMaps and Standard Fonts to prevent fetch errors and improve rendering
+  // The "Failed to construct 'Response'" error often occurs when pdf.js tries to fetch fonts 
+  // and the environment interferes. Explicitly setting these URLs helps.
+  const loadingTask = pdfjsLib.getDocument({ 
+    data: arrayBuffer,
+    cMapUrl: `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/cmaps/`,
+    cMapPacked: true,
+    standardFontDataUrl: `https://esm.sh/pdfjs-dist@${pdfjsLib.version}/standard_fonts/`
+  });
+
+  const pdf = await loadingTask.promise;
   const pageCount = pdf.numPages;
   const pages: PdfPage[] = [];
 
@@ -45,7 +56,7 @@ export const extractImagesFromPdf = async (file: File): Promise<PdfPage[]> => {
   return pages;
 };
 
-export const generatePdfFromImages = (pages: PdfPage[]): void => {
+export const generatePdfFromImages = (pages: PdfPage[], originalFileName?: string): void => {
   if (pages.length === 0) return;
 
   // Initialize with the orientation of the first page
@@ -75,5 +86,12 @@ export const generatePdfFromImages = (pages: PdfPage[]): void => {
     pdf.addImage(imgData, 'JPEG', 0, 0, pdfPageWidth, pdfPageHeight);
   });
 
-  pdf.save('fixed-chinese-document.pdf');
+  // Construct filename
+  let outputName = 'fixed-document.pdf';
+  if (originalFileName) {
+    const nameWithoutExt = originalFileName.replace(/\.pdf$/i, '');
+    outputName = `${nameWithoutExt}_fixed.pdf`;
+  }
+
+  pdf.save(outputName);
 };
