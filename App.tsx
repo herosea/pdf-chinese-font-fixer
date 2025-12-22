@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle, MessageSquarePlus } from 'lucide-react';
+import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle, MessageSquarePlus, Presentation } from 'lucide-react';
 import { PdfPage, ImageQuality } from './types';
 import { extractImagesFromPdf, generatePdfFromImages } from './services/pdfService';
+import { generatePptFromImages } from './services/pptService';
 import { enhancePageImage } from './services/geminiService';
 import ProcessingQueue from './components/ProcessingQueue';
 import ApiKeySelector from './components/ApiKeySelector';
@@ -183,12 +184,21 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownloadPdf = () => {
     try {
       generatePdfFromImages(pages, fileName);
     } catch (err) {
       console.error(err);
       setError("Failed to generate PDF.");
+    }
+  };
+
+  const handleDownloadPpt = async () => {
+    try {
+      await generatePptFromImages(pages, fileName);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to generate PowerPoint.");
     }
   };
 
@@ -307,7 +317,7 @@ const App: React.FC = () => {
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={isProcessing}
                   placeholder="Enter global instructions here..."
-                  className="w-full h-24 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="w-full h-24 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white text-gray-900"
                 />
               </div>
             </div>
@@ -357,13 +367,22 @@ const App: React.FC = () => {
                 )}
 
                 {stats.completed > 0 && !isProcessing && (
-                  <button
-                    onClick={handleDownload}
-                    className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Fixed PDF
-                  </button>
+                  <div className="grid grid-cols-1 gap-3">
+                    <button
+                      onClick={handleDownloadPdf}
+                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </button>
+                    <button
+                      onClick={handleDownloadPpt}
+                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <Presentation className="w-4 h-4 mr-2" />
+                      Export to PPT
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
