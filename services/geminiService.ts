@@ -72,15 +72,8 @@ const getClosestAspectRatio = (ratio: number): "1:1" | "3:4" | "4:3" | "9:16" | 
 
 // Safe access to API Key
 const getApiKey = () => {
-  // 1. Check process.env (Standard)
   if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
     return process.env.API_KEY;
-  }
-  // 2. Check import.meta.env (Vite/ESM) - fallback
-  // @ts-ignore
-  if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-    // @ts-ignore
-    return import.meta.env.VITE_API_KEY;
   }
   return '';
 };
@@ -99,36 +92,29 @@ export const enhancePageImage = async (
     throw new DOMException('Aborted', 'AbortError');
   }
 
-  // Retrieve API key safely
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error("API Key is missing. Please set the API_KEY environment variable.");
   }
 
-  // Construct final prompt
   let finalPrompt = SYSTEM_PROMPT;
   if (customPrompt && customPrompt.trim().length > 0) {
     finalPrompt += `\n\n## 用户额外指令 (User Additional Instructions)\n注意：请在修复图像的同时，严格遵守以下额外指令：\n${customPrompt}`;
   }
 
-  // We wrap the operation in a loop to handle transient network errors (like "Unexpected end of JSON input")
-  // which can happen with large image payloads or temporary connection drops.
   const MAX_RETRIES = 3;
   let lastError: any;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    if (signal?.aborted) break; // Check signal before each attempt
+    if (signal?.aborted) break;
 
     try {
-      // Re-instantiate client per request to ensure clean state
+      // Re-instantiate Gemini per request to ensure use of most up-to-date API key
       const ai = new GoogleGenAI({ apiKey });
       
       const base64Data = base64Image.split(',')[1] || base64Image;
       const targetAspectRatio = getClosestAspectRatio(aspectRatio);
 
-      // We perform the API call
-      // Note: We cannot natively pass 'signal' to generateContent in this SDK version easily for cancellation of the HTTP request itself,
-      // but we handle the logic flow via the loop checks.
       const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
         contents: {
@@ -146,7 +132,7 @@ export const enhancePageImage = async (
         },
         config: {
           imageConfig: {
-            imageSize: quality, // 1K, 2K, or 4K
+            imageSize: quality,
             aspectRatio: targetAspectRatio
           }
         }
@@ -156,7 +142,6 @@ export const enhancePageImage = async (
          throw new DOMException('Aborted', 'AbortError');
       }
 
-      // Extract the image from the response
       if (response.candidates?.[0]?.content?.parts) {
         for (const part of response.candidates[0].content.parts) {
           if (part.inlineData && part.inlineData.data) {
@@ -170,27 +155,33 @@ export const enhancePageImage = async (
     } catch (error: any) {
       lastError = error;
       
-      // If aborted, don't retry, just throw
+      const errorText = error.message || "";
+      const isPermissionDenied = errorText.includes("PERMISSION_DENIED") || error.status === 403;
+      const isNotFound = errorText.includes("Requested entity was not found") || error.status === 404;
+
+      // DO NOT retry on authentication/permission errors
+      if (isPermissionDenied || isNotFound) {
+        // Categorize for UI
+        if (isPermissionDenied) error.isAuthError = true;
+        if (isNotFound) error.isNotFound = true;
+        throw error;
+      }
+
       if (signal?.aborted || error.name === 'AbortError') {
         throw error;
       }
 
       console.warn(`Attempt ${attempt} failed:`, error);
 
-      // Check for specific errors that are worth retrying
-      // "Unexpected end of JSON input" usually indicates a network drop or server-side close
-      // 503 Service Unavailable, 429 Too Many Requests are also retryable
-      const isNetworkError = error.message?.includes('JSON') || error.message?.includes('fetch') || error.message?.includes('network');
+      const isNetworkError = errorText.includes('JSON') || errorText.includes('fetch') || errorText.includes('network');
       const isServerOverload = error.status === 503 || error.status === 429;
       
       if (attempt < MAX_RETRIES && (isNetworkError || isServerOverload)) {
-        // Exponential backoff: 2s, 4s, 8s
         const backoffTime = 2000 * Math.pow(2, attempt - 1);
         await sleep(backoffTime);
         continue;
       }
       
-      // If we shouldn't retry or run out of retries, throw the last error
       break;
     }
   }

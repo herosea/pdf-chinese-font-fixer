@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle, MessageSquarePlus, Presentation } from 'lucide-react';
+import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as ImageIcon, StopCircle, MessageSquarePlus, Presentation, FileArchive } from 'lucide-react';
 import { PdfPage, ImageQuality } from './types';
 import { extractImagesFromPdf, generatePdfFromImages } from './services/pdfService';
 import { generatePptFromImages } from './services/pptService';
 import { enhancePageImage } from './services/geminiService';
+import { downloadAllAsZip } from './services/zipService';
 import ProcessingQueue from './components/ProcessingQueue';
 import ApiKeySelector from './components/ApiKeySelector';
 
@@ -13,6 +14,7 @@ const App: React.FC = () => {
   const [quality, setQuality] = useState<ImageQuality>('4K');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [isApiKeyReady, setIsApiKeyReady] = useState(false);
+  const [keyError, setKeyError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
   
@@ -47,32 +49,49 @@ const App: React.FC = () => {
     ));
   };
 
+  const handleReplaceImage = (pageNumber: number, newImageBase64: string) => {
+    setPages(prev => prev.map(p => 
+      p.pageNumber === pageNumber 
+        ? { ...p, originalImage: newImageBase64, processedImage: null, status: 'pending' as const } 
+        : p
+    ));
+  };
+
+  const handlePromoteImage = (pageNumber: number) => {
+    setPages(prev => prev.map(p => {
+      if (p.pageNumber === pageNumber && p.processedImage) {
+        return { 
+          ...p, 
+          originalImage: p.processedImage, 
+          processedImage: null, 
+          status: 'pending' as const 
+        };
+      }
+      return p;
+    }));
+  };
+
   const processPages = async () => {
-    if (pages.length === 0 || !isApiKeyReady) return;
+    if (pages.length === 0 || (!isApiKeyReady && !keyError)) return;
     
     setIsProcessing(true);
     setError(null);
+    setKeyError(false);
 
-    // Create a new AbortController for this batch
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // Create a copy of pages to track updates
     const updatedPages = [...pages];
 
-    // Process sequentially
     for (let i = 0; i < updatedPages.length; i++) {
-      // Check for abort before starting iteration
       if (controller.signal.aborted) break;
 
       const page = updatedPages[i];
-      if (page.status === 'completed') continue; // Skip already done
+      if (page.status === 'completed') continue;
 
-      // Update status to processing
       updatedPages[i] = { ...page, status: 'processing' };
       setPages([...updatedPages]);
 
-      // Combine global prompt with page specific prompt
       const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
       const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
 
@@ -91,21 +110,25 @@ const App: React.FC = () => {
           status: 'completed' 
         };
       } catch (err: any) {
-        // Handle AbortError specifically
         if (err.name === 'AbortError' || controller.signal.aborted) {
-          console.log(`Processing aborted for page ${page.pageNumber}`);
-          // Revert status to pending if aborted so it can be retried
           updatedPages[i] = { ...page, status: 'pending' };
           setPages([...updatedPages]);
-          break; // Exit the loop entirely
+          break;
         }
 
         console.error(`Error processing page ${page.pageNumber}:`, err);
         updatedPages[i] = { ...page, status: 'error' };
-        // Continue to next page if it's a regular error
+        
+        // Handle Permission Denied or Not Found errors
+        if (err.isAuthError || err.isNotFound) {
+          setKeyError(true);
+          setIsApiKeyReady(false);
+          setError(err.isAuthError ? "Permission Denied: Please use a paid API key." : "Model Not Found: Please check your API project settings.");
+          setIsProcessing(false);
+          return; // Stop the whole queue
+        }
       }
       
-      // Update state after each page
       setPages([...updatedPages]);
     }
 
@@ -114,18 +137,18 @@ const App: React.FC = () => {
   };
 
   const handleProcessSinglePage = async (pageNumber: number) => {
-    if (isProcessing || !isApiKeyReady) return;
+    if (isProcessing || (!isApiKeyReady && !keyError)) return;
     
     const pageIndex = pages.findIndex(p => p.pageNumber === pageNumber);
     if (pageIndex === -1) return;
 
     setIsProcessing(true);
     setError(null);
+    setKeyError(false);
     
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // Optimistic update
     setPages(prev => {
         const next = [...prev];
         next[pageIndex] = { ...next[pageIndex], status: 'processing' };
@@ -134,8 +157,6 @@ const App: React.FC = () => {
 
     try {
         const page = pages[pageIndex];
-        
-        // Combine global prompt with page specific prompt
         const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
         const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
 
@@ -164,8 +185,13 @@ const App: React.FC = () => {
                 next[pageIndex] = { ...next[pageIndex], status: 'error' };
                 return next;
             });
+
+            if (err.isAuthError || err.isNotFound) {
+              setKeyError(true);
+              setIsApiKeyReady(false);
+              setError(err.isAuthError ? "Permission Denied: Please use a paid API key." : "Model Not Found: Please check your API project settings.");
+            }
         } else {
-             // If aborted during retry, revert to pending so it can be picked up by batch or retry again
              setPages(prev => {
                 const next = [...prev];
                 next[pageIndex] = { ...next[pageIndex], status: 'pending' };
@@ -202,6 +228,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleDownloadZip = async () => {
+    try {
+      await downloadAllAsZip(pages, fileName);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to generate ZIP archive.");
+    }
+  };
+
   const stats = {
     total: pages.length,
     completed: pages.filter(p => p.status === 'completed').length,
@@ -232,7 +267,10 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        <ApiKeySelector onReady={() => setIsApiKeyReady(true)} />
+        <ApiKeySelector 
+          onReady={() => { setIsApiKeyReady(true); setKeyError(false); }} 
+          forceShow={keyError}
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -340,9 +378,9 @@ const App: React.FC = () => {
                 {!isProcessing ? (
                   <button
                     onClick={processPages}
-                    disabled={!isApiKeyReady || pages.length === 0 || isAllDone}
+                    disabled={(!isApiKeyReady && !keyError) || pages.length === 0 || isAllDone}
                     className={`w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all
-                      ${!isApiKeyReady || pages.length === 0 || isAllDone
+                      ${(!isApiKeyReady && !keyError) || pages.length === 0 || isAllDone
                         ? 'bg-gray-300 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg transform active:scale-95'
                       }`}
@@ -382,6 +420,13 @@ const App: React.FC = () => {
                       <Presentation className="w-4 h-4 mr-2" />
                       Export to PPT
                     </button>
+                    <button
+                      onClick={handleDownloadZip}
+                      className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <FileArchive className="w-4 h-4 mr-2" />
+                      Download All Images (ZIP)
+                    </button>
                   </div>
                 )}
               </div>
@@ -399,7 +444,9 @@ const App: React.FC = () => {
               <ProcessingQueue 
                 pages={pages} 
                 onRetry={handleProcessSinglePage} 
-                onUpdatePagePrompt={handleUpdatePagePrompt} 
+                onUpdatePagePrompt={handleUpdatePagePrompt}
+                onReplaceImage={handleReplaceImage}
+                onPromoteImage={handlePromoteImage}
               />
             )}
           </div>

@@ -3,9 +3,10 @@ import { Key, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface ApiKeySelectorProps {
   onReady: () => void;
+  forceShow?: boolean;
 }
 
-const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
+const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady, forceShow = false }) => {
   const [hasKey, setHasKey] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isAiStudio, setIsAiStudio] = useState(false);
@@ -29,7 +30,6 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
     }
 
     // 2. Fallback: Check standard environment variable
-    // We safely check process.env to avoid reference errors in some browser environments
     try {
       if (!keyReady && typeof process !== 'undefined' && process.env && process.env.API_KEY) {
         keyReady = true;
@@ -56,35 +56,40 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
     if ((window as any).aistudio) {
       try {
         await (window as any).aistudio.openSelectKey();
-        checkKey();
+        // RACE CONDITION MITIGATION: Assume the key selection was successful 
+        // after triggering openSelectKey() and proceed to the app.
+        setHasKey(true);
+        onReady();
       } catch (e) {
         console.error("Error opening key selector:", e);
       }
     }
   };
 
-  if (loading) {
+  if (loading && !forceShow) {
     return <div className="p-4 text-center text-gray-500">Checking API Key configuration...</div>;
   }
 
-  if (hasKey) {
+  if (hasKey && !forceShow) {
     return null; // Invisible if key is ready
   }
 
   return (
-    <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 mb-8 text-center max-w-2xl mx-auto shadow-sm">
+    <div className={`bg-orange-50 border border-orange-200 rounded-lg p-6 mb-8 text-center max-w-2xl mx-auto shadow-sm ${forceShow ? 'ring-2 ring-orange-500' : ''}`}>
       <div className="flex justify-center mb-4">
         <div className="bg-orange-100 p-3 rounded-full">
           <Key className="w-8 h-8 text-orange-600" />
         </div>
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-        API Key Required
+        {forceShow ? 'API Key Permission Issue' : 'API Key Required'}
       </h3>
       
       {isAiStudio ? (
         <p className="text-gray-600 mb-6 max-w-md mx-auto">
-          To use the <b>Gemini 3 Pro</b> model, you must select a paid API key from your Google Cloud Project.
+          {forceShow 
+            ? 'The current API key does not have permission for the Gemini 3 Pro model. Please select a paid API key from a project with billing enabled.'
+            : 'To use the Gemini 3 Pro model, you must select a paid API key from your Google Cloud Project.'}
         </p>
       ) : (
         <div className="mb-6 max-w-lg mx-auto">
@@ -94,10 +99,11 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
           <div className="bg-white border border-orange-200 rounded p-4 text-left flex items-start gap-3">
              <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
              <div className="text-sm text-gray-700">
-                <p className="font-medium mb-1">Environment Configuration Missing</p>
+                <p className="font-medium mb-1">Environment Configuration Issue</p>
                 <p>
-                  Since you are not running in Google AI Studio, the "Select API Key" feature is unavailable. 
-                  Please configure the <code>API_KEY</code> environment variable in your deployment settings (e.g., Google Cloud Run, Vercel, etc.).
+                  {forceShow 
+                    ? 'The provided API_KEY returned a "Permission Denied" error. Please ensure your key belongs to a paid project with the Gemini API enabled.'
+                    : 'Since you are not running in Google AI Studio, the "Select API Key" feature is unavailable. Please configure the API_KEY environment variable.'}
                 </p>
              </div>
           </div>
@@ -110,7 +116,7 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady }) => {
             onClick={handleSelectKey}
             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
-            Select API Key
+            {forceShow ? 'Select Different API Key' : 'Select API Key'}
           </button>
         )}
         

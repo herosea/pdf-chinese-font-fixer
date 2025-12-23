@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { PdfPage } from '../types';
-import { CheckCircle, Loader2, XCircle, Clock, Search, ArrowRight, RefreshCw, MessageSquare, Play, ChevronDown, ChevronUp, ZoomIn } from 'lucide-react';
+import { 
+  CheckCircle, Loader2, XCircle, Clock, Search, ArrowRight, RefreshCw, 
+  MessageSquare, Play, ChevronDown, ChevronUp, ZoomIn, Download, 
+  Upload as UploadIcon, ArrowLeftCircle 
+} from 'lucide-react';
 import ImagePreviewModal from './ImagePreviewModal';
 
 interface ProcessingQueueProps {
   pages: PdfPage[];
   onRetry?: (pageNumber: number) => void;
   onUpdatePagePrompt?: (pageNumber: number, prompt: string) => void;
+  onReplaceImage?: (pageNumber: number, newImageBase64: string) => void;
+  onPromoteImage?: (pageNumber: number) => void;
 }
 
-const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpdatePagePrompt }) => {
+const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ 
+  pages, 
+  onRetry, 
+  onUpdatePagePrompt, 
+  onReplaceImage, 
+  onPromoteImage 
+}) => {
   const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
   const [expandedPromptIds, setExpandedPromptIds] = useState<Set<number>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeReplacementPage = useRef<number | null>(null);
 
   const togglePrompt = (pageNumber: number) => {
     const newSet = new Set(expandedPromptIds);
@@ -23,10 +37,47 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpd
     setExpandedPromptIds(newSet);
   };
 
+  const downloadSingleImage = (imageUrl: string, pageNumber: number) => {
+    const link = document.createElement('a');
+    link.href = imageUrl;
+    const extension = imageUrl.includes('image/png') ? 'png' : 'jpg';
+    link.download = `page_${pageNumber.toString().padStart(3, '0')}_fixed.${extension}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleReplacementClick = (pageNumber: number) => {
+    activeReplacementPage.current = pageNumber;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const pageNumber = activeReplacementPage.current;
+    if (file && pageNumber !== null && onReplaceImage) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onReplaceImage(pageNumber, reader.result as string);
+        activeReplacementPage.current = null;
+      };
+      reader.readAsDataURL(file);
+    }
+    e.target.value = ''; // Reset input
+  };
+
   if (pages.length === 0) return null;
 
   return (
     <>
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileChange} 
+        className="hidden" 
+        accept="image/*" 
+      />
+
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
           <h3 className="text-lg font-medium text-gray-900">Processing Queue</h3>
@@ -92,6 +143,20 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpd
                     <div className="flex items-center justify-end gap-3 w-full sm:w-auto mt-2 sm:mt-0" onClick={(e) => e.stopPropagation()}>
                       
                       <div className="flex items-center gap-2">
+                          {/* Individual Download Button */}
+                          {page.processedImage && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                downloadSingleImage(page.processedImage!, page.pageNumber);
+                              }}
+                              className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+                              title="Download this page as image"
+                            >
+                              <Download className="w-5 h-5" />
+                            </button>
+                          )}
+
                           {/* Prompt Toggle */}
                           {onUpdatePagePrompt && (
                             <button
@@ -126,27 +191,51 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpd
                           )}
                       </div>
 
-                      {/* Large Previews */}
+                      {/* Previews with Actions */}
                       <div className="flex items-center gap-3">
-                          <div 
-                            className="relative group w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all flex-shrink-0 shadow-sm"
-                            onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
-                          >
-                            <img src={page.originalImage} alt="Original" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
+                          {/* Original Preview Container */}
+                          <div className="relative group/original flex-shrink-0">
+                            <div 
+                              className="w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all shadow-sm"
+                              onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
+                            >
+                              <img src={page.originalImage} alt="Original" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/0 group-hover/original:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/original:opacity-100">
+                                  <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
+                              </div>
                             </div>
+                            {/* Replace with Upload Button Overlay */}
+                            {!isProcessing && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleReplacementClick(page.pageNumber); }}
+                                className="absolute -top-2 -left-2 bg-blue-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/original:opacity-100 transition-opacity hover:bg-blue-700 z-10"
+                                title="Upload replacement image"
+                              >
+                                <UploadIcon className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                           
                           {page.processedImage ? (
                             <>
-                              <ArrowRight className="w-6 h-6 text-gray-400 flex-shrink-0" />
+                              <div className="flex flex-col items-center gap-2">
+                                <ArrowRight className="w-6 h-6 text-gray-400" />
+                                {!isProcessing && (
+                                   <button 
+                                     onClick={(e) => { e.stopPropagation(); onPromoteImage?.(page.pageNumber); }}
+                                     className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                                     title="Use generated image as original"
+                                   >
+                                     <ArrowLeftCircle className="w-5 h-5" />
+                                   </button>
+                                )}
+                              </div>
                               <div 
-                                className="relative group w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer ring-2 ring-green-100 hover:ring-4 hover:ring-green-500 transition-all flex-shrink-0 shadow-md"
+                                className="relative group/processed w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer ring-2 ring-green-100 hover:ring-4 hover:ring-green-500 transition-all flex-shrink-0 shadow-md"
                                 onClick={() => setPreview({ url: page.processedImage!, title: `Page ${page.pageNumber} - Processed` })}
                               >
                                 <img src={page.processedImage} alt="Processed" className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <div className="absolute inset-0 bg-black/0 group-hover/processed:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/processed:opacity-100">
                                     <ZoomIn className="w-6 h-6 text-white drop-shadow-md" />
                                 </div>
                               </div>
@@ -176,13 +265,22 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpd
                         <div className="md:w-1/2 flex flex-col space-y-2">
                            <div className="flex justify-between items-center px-1">
                               <span className="text-xs font-medium text-gray-500">Original Page Reference</span>
-                              <button 
-                                onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
-                                className="text-xs text-blue-600 flex items-center hover:underline"
-                              >
-                                <ZoomIn className="w-3 h-3 mr-1" />
-                                Full Screen
-                              </button>
+                              <div className="flex gap-3">
+                                <button 
+                                  onClick={() => handleReplacementClick(page.pageNumber)}
+                                  className="text-xs text-gray-600 flex items-center hover:underline"
+                                >
+                                  <UploadIcon className="w-3 h-3 mr-1" />
+                                  Replace Image
+                                </button>
+                                <button 
+                                  onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
+                                  className="text-xs text-blue-600 flex items-center hover:underline"
+                                >
+                                  <ZoomIn className="w-3 h-3 mr-1" />
+                                  Full Screen
+                                </button>
+                              </div>
                            </div>
                            <div className="bg-gray-200/50 rounded-lg border border-gray-300 overflow-hidden shadow-inner h-[500px] flex items-center justify-center relative">
                               <img 
@@ -219,14 +317,25 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ pages, onRetry, onUpd
                                    >
                                      Cancel
                                    </button>
-                                   <button
-                                      onClick={() => onRetry && onRetry(page.pageNumber)}
-                                      disabled={isProcessing}
-                                      className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-medium"
-                                   >
-                                     <Play className="w-4 h-4 mr-2" />
-                                     Run Page {page.pageNumber}
-                                   </button>
+                                   <div className="flex gap-2">
+                                      {page.processedImage && (
+                                        <button
+                                          onClick={() => onPromoteImage?.(page.pageNumber)}
+                                          disabled={isProcessing}
+                                          className="flex items-center justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 disabled:opacity-50 transition-colors text-sm font-medium"
+                                        >
+                                          Use Processed as Original
+                                        </button>
+                                      )}
+                                      <button
+                                         onClick={() => onRetry && onRetry(page.pageNumber)}
+                                         disabled={isProcessing}
+                                         className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-medium"
+                                      >
+                                        <Play className="w-4 h-4 mr-2" />
+                                        Run Page {page.pageNumber}
+                                      </button>
+                                   </div>
                                 </div>
                             </div>
                         </div>
