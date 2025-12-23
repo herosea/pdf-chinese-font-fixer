@@ -80,9 +80,9 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">Processing Queue</h3>
+          <h3 className="text-lg font-medium text-gray-900">处理队列</h3>
           <span className="text-sm text-gray-500">
-            {pages.filter(p => p.status === 'completed').length} / {pages.length} Completed
+            {pages.filter(p => p.status === 'completed').length} / {pages.length} 已完成
           </span>
         </div>
         
@@ -117,24 +117,24 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                         <div className="flex-1 min-w-0 select-none">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              Page {page.pageNumber}
+                              第 {page.pageNumber} 页
                             </p>
                             {hasCustomPrompt && !isExpanded && (
                               <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                Custom Prompt
+                                自定义指令
                               </span>
                             )}
                             {!isProcessing && (
                                 <span className="text-xs text-gray-400 opacity-0 group-hover/item:opacity-100 transition-opacity flex items-center">
                                     <MessageSquare className="w-3 h-3 mr-1" />
-                                    {isExpanded ? 'Close editor' : 'Click to edit prompt'}
+                                    {isExpanded ? '关闭编辑器' : '点击编辑指令'}
                                 </span>
                             )}
                           </div>
                           <p className="text-xs text-gray-500">
-                            {page.status === 'completed' ? 'Processing successful' : 
-                            page.status === 'processing' ? 'Enhancing with Gemini AI...' :
-                            page.status === 'error' ? 'Failed to process' : 'Waiting in queue'}
+                            {page.status === 'completed' ? '处理成功' : 
+                            page.status === 'processing' ? '正在使用 Gemini AI 增强...' :
+                            page.status === 'error' ? '处理失败' : '排队等待中'}
                           </p>
                         </div>
                     </div>
@@ -151,7 +151,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                 downloadSingleImage(page.processedImage!, page.pageNumber);
                               }}
                               className="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
-                              title="Download this page as image"
+                              title="下载此页图片"
                             >
                               <Download className="w-5 h-5" />
                             </button>
@@ -166,7 +166,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                   ? 'bg-blue-50 text-blue-600 hover:bg-blue-100' 
                                   : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
                               }`}
-                              title="Edit Page Prompt"
+                              title="编辑页面指令"
                             >
                               <MessageSquare className="w-5 h-5" />
                             </button>
@@ -180,7 +180,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                 onRetry(page.pageNumber);
                               }}
                               className="p-2 text-gray-400 hover:bg-green-50 hover:text-green-600 rounded-full transition-colors"
-                              title="Run this page again"
+                              title="重新运行此页"
                             >
                               {page.status === 'completed' ? (
                                 <RefreshCw className="w-5 h-5" />
@@ -197,7 +197,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                           <div className="relative group/original flex-shrink-0">
                             <div 
                               className="w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer hover:ring-4 hover:ring-blue-400 transition-all shadow-sm"
-                              onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
+                              onClick={() => setPreview({ url: page.originalImage, title: `第 ${page.pageNumber} 页 - 原图` })}
                             >
                               <img src={page.originalImage} alt="Original" className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-black/0 group-hover/original:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/original:opacity-100">
@@ -209,7 +209,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                               <button 
                                 onClick={(e) => { e.stopPropagation(); handleReplacementClick(page.pageNumber); }}
                                 className="absolute -top-2 -left-2 bg-blue-600 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover/original:opacity-100 transition-opacity hover:bg-blue-700 z-10"
-                                title="Upload replacement image"
+                                title="上传替换图片"
                               >
                                 <UploadIcon className="w-3.5 h-3.5" />
                               </button>
@@ -224,7 +224,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                    <button 
                                      onClick={(e) => { e.stopPropagation(); onPromoteImage?.(page.pageNumber); }}
                                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
-                                     title="Use generated image as original"
+                                     title="将生成的图片设为原图"
                                    >
                                      <ArrowLeftCircle className="w-5 h-5" />
                                    </button>
@@ -232,7 +232,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                               </div>
                               <div 
                                 className="relative group/processed w-32 h-44 bg-gray-100 border rounded-lg overflow-hidden cursor-pointer ring-2 ring-green-100 hover:ring-4 hover:ring-green-500 transition-all flex-shrink-0 shadow-md"
-                                onClick={() => setPreview({ url: page.processedImage!, title: `Page ${page.pageNumber} - Processed` })}
+                                onClick={() => setPreview({ url: page.processedImage!, title: `第 ${page.pageNumber} 页 - 处理后` })}
                               >
                                 <img src={page.processedImage} alt="Processed" className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/0 group-hover/processed:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover/processed:opacity-100">
@@ -244,7 +244,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                              <div className="w-32 h-44 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 ml-2 bg-gray-50">
                                <div className="text-center px-2">
                                   <Loader2 className={`w-6 h-6 text-gray-300 mx-auto mb-2 ${isProcessing ? 'animate-spin' : ''}`} />
-                                  <span className="text-xs text-gray-400">Waiting...</span>
+                                  <span className="text-xs text-gray-400">等待中...</span>
                                </div>
                              </div>
                           )}
@@ -264,21 +264,21 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                         {/* Left: Image Reference */}
                         <div className="md:w-1/2 flex flex-col space-y-2">
                            <div className="flex justify-between items-center px-1">
-                              <span className="text-xs font-medium text-gray-500">Original Page Reference</span>
+                              <span className="text-xs font-medium text-gray-500">原始页面参考</span>
                               <div className="flex gap-3">
                                 <button 
                                   onClick={() => handleReplacementClick(page.pageNumber)}
                                   className="text-xs text-gray-600 flex items-center hover:underline"
                                 >
                                   <UploadIcon className="w-3 h-3 mr-1" />
-                                  Replace Image
+                                  替换图片
                                 </button>
                                 <button 
-                                  onClick={() => setPreview({ url: page.originalImage, title: `Page ${page.pageNumber} - Original` })}
+                                  onClick={() => setPreview({ url: page.originalImage, title: `第 ${page.pageNumber} 页 - 原图` })}
                                   className="text-xs text-blue-600 flex items-center hover:underline"
                                 >
                                   <ZoomIn className="w-3 h-3 mr-1" />
-                                  Full Screen
+                                  全屏查看
                                 </button>
                               </div>
                            </div>
@@ -295,16 +295,16 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                         <div className="md:w-1/2 flex flex-col space-y-3">
                             <div className="bg-white p-4 rounded-lg border border-blue-100 shadow-sm h-full flex flex-col">
                                 <label className="text-sm font-semibold text-gray-900 mb-1 block">
-                                  Custom Repair Instructions
+                                  自定义修复指令
                                 </label>
                                 <p className="text-xs text-gray-500 mb-3">
-                                  Describe specific areas to fix (e.g., "The top-left stamp is blurry", "Fix the table borders").
+                                  描述需要修复的具体区域（例如：“左上角的印章模糊”，“修复表格边框”）。
                                 </p>
                                 
                                 <textarea
                                   value={page.customPrompt || ''}
                                   onChange={(e) => onUpdatePagePrompt(page.pageNumber, e.target.value)}
-                                  placeholder="Enter instructions for this specific page..."
+                                  placeholder="输入针对此页面的指令..."
                                   className="flex-1 w-full text-sm p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none min-h-[120px] bg-white text-gray-900"
                                   disabled={isProcessing}
                                   autoFocus
@@ -315,7 +315,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                      onClick={() => togglePrompt(page.pageNumber)}
                                      className="text-xs text-gray-500 hover:text-gray-700"
                                    >
-                                     Cancel
+                                     取消
                                    </button>
                                    <div className="flex gap-2">
                                       {page.processedImage && (
@@ -324,7 +324,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                           disabled={isProcessing}
                                           className="flex items-center justify-center bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 disabled:opacity-50 transition-colors text-sm font-medium"
                                         >
-                                          Use Processed as Original
+                                          使用处理后的图片作为原图
                                         </button>
                                       )}
                                       <button
@@ -333,7 +333,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                                          className="flex items-center justify-center bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm text-sm font-medium"
                                       >
                                         <Play className="w-4 h-4 mr-2" />
-                                        Run Page {page.pageNumber}
+                                        运行第 {page.pageNumber} 页
                                       </button>
                                    </div>
                                 </div>

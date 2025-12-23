@@ -67,7 +67,7 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady, forceShow = fa
   };
 
   if (loading && !forceShow) {
-    return <div className="p-4 text-center text-gray-500">Checking API Key configuration...</div>;
+    return <div className="p-4 text-center text-gray-500">正在检查 API 密钥配置...</div>;
   }
 
   if (hasKey && !forceShow) {
@@ -82,28 +82,28 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady, forceShow = fa
         </div>
       </div>
       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-        {forceShow ? 'API Key Permission Issue' : 'API Key Required'}
+        {forceShow ? 'API 密钥权限问题' : '需要 API 密钥'}
       </h3>
       
       {isAiStudio ? (
         <p className="text-gray-600 mb-6 max-w-md mx-auto">
           {forceShow 
-            ? 'The current API key does not have permission for the Gemini 3 Pro model. Please select a paid API key from a project with billing enabled.'
-            : 'To use the Gemini 3 Pro model, you must select a paid API key from your Google Cloud Project.'}
+            ? '当前 API 密钥没有使用 Gemini 3 Pro 模型的权限。请选择一个启用了计费的项目中的付费 API 密钥。'
+            : '要使用 Gemini 3 Pro 模型，您必须从 Google Cloud 项目中选择一个付费 API 密钥。'}
         </p>
       ) : (
         <div className="mb-6 max-w-lg mx-auto">
           <p className="text-gray-600 mb-4">
-             The <b>Gemini 3 Pro</b> model requires a paid API key.
+             <b>Gemini 3 Pro</b> 模型需要付费 API 密钥。
           </p>
           <div className="bg-white border border-orange-200 rounded p-4 text-left flex items-start gap-3">
              <AlertTriangle className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
              <div className="text-sm text-gray-700">
-                <p className="font-medium mb-1">Environment Configuration Issue</p>
+                <p className="font-medium mb-1">环境配置问题</p>
                 <p>
                   {forceShow 
-                    ? 'The provided API_KEY returned a "Permission Denied" error. Please ensure your key belongs to a paid project with the Gemini API enabled.'
-                    : 'Since you are not running in Google AI Studio, the "Select API Key" feature is unavailable. Please configure the API_KEY environment variable.'}
+                    ? '提供的 API_KEY 返回了“权限被拒绝”错误。请确保您的密钥属于已启用 Gemini API 的付费项目。'
+                    : '由于您未在 Google AI Studio 中运行，“选择 API 密钥”功能不可用。请配置 API_KEY 环境变量。'}
                 </p>
              </div>
           </div>
@@ -116,7 +116,7 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady, forceShow = fa
             onClick={handleSelectKey}
             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
           >
-            {forceShow ? 'Select Different API Key' : 'Select API Key'}
+            {forceShow ? '选择其他 API 密钥' : '选择 API 密钥'}
           </button>
         )}
         
@@ -125,19 +125,19 @@ const ApiKeySelector: React.FC<ApiKeySelectorProps> = ({ onReady, forceShow = fa
           className="inline-flex items-center px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition-colors"
         >
           <RefreshCw className="w-4 h-4 mr-2" />
-          Check Again
+          再次检查
         </button>
       </div>
 
       <div className="mt-6 text-sm text-gray-500 flex justify-center items-center gap-1">
-        Need help? 
+        需要帮助？ 
         <a 
           href="https://ai.google.dev/gemini-api/docs/billing" 
           target="_blank" 
           rel="noopener noreferrer"
           className="text-blue-600 hover:text-blue-800 flex items-center gap-0.5 underline"
         >
-          View Billing Documentation <ExternalLink className="w-3 h-3" />
+          查看计费文档 <ExternalLink className="w-3 h-3" />
         </a>
       </div>
     </div>

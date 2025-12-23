@@ -26,7 +26,7 @@ const App: React.FC = () => {
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      setError('Please upload a valid PDF file.');
+      setError('请上传有效的 PDF 文件。');
       return;
     }
 
@@ -39,7 +39,7 @@ const App: React.FC = () => {
       setPages(extractedPages);
     } catch (err) {
       console.error(err);
-      setError('Failed to extract images from PDF. Please try another file.');
+      setError('无法从 PDF 中提取图片。请尝试其他文件。');
     }
   };
 
@@ -93,7 +93,7 @@ const App: React.FC = () => {
       setPages([...updatedPages]);
 
       const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
-      const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
+      const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[页面特定指令]:\n');
 
       try {
         const enhancedImage = await enhancePageImage(
@@ -123,7 +123,7 @@ const App: React.FC = () => {
         if (err.isAuthError || err.isNotFound) {
           setKeyError(true);
           setIsApiKeyReady(false);
-          setError(err.isAuthError ? "Permission Denied: Please use a paid API key." : "Model Not Found: Please check your API project settings.");
+          setError(err.isAuthError ? "权限被拒绝：请使用付费 API 密钥。" : "未找到模型：请检查您的 API 项目设置。");
           setIsProcessing(false);
           return; // Stop the whole queue
         }
@@ -158,7 +158,7 @@ const App: React.FC = () => {
     try {
         const page = pages[pageIndex];
         const pagePrompt = page.customPrompt ? page.customPrompt.trim() : '';
-        const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[Additional Page Specific Instructions]:\n');
+        const combinedPrompt = [customPrompt.trim(), pagePrompt].filter(Boolean).join('\n\n[页面特定指令]:\n');
 
         const enhancedImage = await enhancePageImage(
             page.originalImage,
@@ -189,7 +189,7 @@ const App: React.FC = () => {
             if (err.isAuthError || err.isNotFound) {
               setKeyError(true);
               setIsApiKeyReady(false);
-              setError(err.isAuthError ? "Permission Denied: Please use a paid API key." : "Model Not Found: Please check your API project settings.");
+              setError(err.isAuthError ? "权限被拒绝：请使用付费 API 密钥。" : "未找到模型：请检查您的 API 项目设置。");
             }
         } else {
              setPages(prev => {
@@ -215,7 +215,7 @@ const App: React.FC = () => {
       generatePdfFromImages(pages, fileName);
     } catch (err) {
       console.error(err);
-      setError("Failed to generate PDF.");
+      setError("生成 PDF 失败。");
     }
   };
 
@@ -224,7 +224,7 @@ const App: React.FC = () => {
       await generatePptFromImages(pages, fileName);
     } catch (err) {
       console.error(err);
-      setError("Failed to generate PowerPoint.");
+      setError("生成 PowerPoint 失败。");
     }
   };
 
@@ -233,7 +233,7 @@ const App: React.FC = () => {
       await downloadAllAsZip(pages, fileName);
     } catch (err) {
       console.error(err);
-      setError("Failed to generate ZIP archive.");
+      setError("生成 ZIP 压缩包失败。");
     }
   };
 
@@ -254,12 +254,12 @@ const App: React.FC = () => {
               <Sparkles className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-              PDF Chinese Font Fixer
+              PDF 中文字体修复工具
             </h1>
           </div>
           <div className="flex items-center gap-4">
              <div className="hidden md:flex items-center text-sm text-gray-500">
-                Powered by Gemini 3 Pro
+                由 Gemini 3 Pro 驱动
              </div>
           </div>
         </div>
@@ -281,7 +281,7 @@ const App: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Upload className="w-5 h-5 text-gray-500" />
-                Input Document
+                输入文档
               </h2>
               
               <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-6 hover:bg-gray-50 transition-colors text-center group">
@@ -297,10 +297,10 @@ const App: React.FC = () => {
                     <FileUp className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="text-sm font-medium text-gray-700">
-                    {fileName ? fileName : "Drop PDF or Click to Upload"}
+                    {fileName ? fileName : "拖放 PDF 或点击上传"}
                   </div>
                   <div className="text-xs text-gray-500">
-                    PDF files only
+                    仅限 PDF 文件
                   </div>
                 </div>
               </div>
@@ -317,12 +317,12 @@ const App: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-100 transition-opacity">
                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-gray-500" />
-                Output Quality
+                输出质量
               </h2>
               
               <div className="space-y-3 mb-6">
                  <p className="text-sm text-gray-500">
-                   Select the resolution for the reconstructed pages. Higher quality takes longer to generate.
+                   选择重建页面的分辨率。高质量需要更长的生成时间。
                  </p>
                  <div className="grid grid-cols-3 gap-3">
                     {(['1K', '2K', '4K'] as ImageQuality[]).map((q) => (
@@ -344,17 +344,17 @@ const App: React.FC = () => {
 
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2 pt-4 border-t border-gray-100">
                 <MessageSquarePlus className="w-5 h-5 text-gray-500" />
-                Global Instructions
+                全局指令
               </h2>
               <div className="space-y-3">
                 <p className="text-sm text-gray-500">
-                  Optional: Add requests applied to all pages (e.g., "Make text bolder").
+                  可选：添加应用于所有页面的请求（例如：“加粗文字”）。
                 </p>
                 <textarea
                   value={customPrompt}
                   onChange={(e) => setCustomPrompt(e.target.value)}
                   disabled={isProcessing}
-                  placeholder="Enter global instructions here..."
+                  placeholder="在此输入全局指令..."
                   className="w-full h-24 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white text-gray-900"
                 />
               </div>
@@ -364,13 +364,13 @@ const App: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sticky top-24">
               <div className="flex flex-col gap-4">
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-gray-500">Pages detected:</span>
+                  <span className="text-gray-500">检测到的页面：</span>
                   <span className="font-medium">{pages.length}</span>
                 </div>
                 
                 {stats.completed > 0 && (
                    <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">Completed:</span>
+                    <span className="text-gray-500">已完成：</span>
                     <span className="font-medium text-green-600">{stats.completed}</span>
                   </div>
                 )}
@@ -386,11 +386,11 @@ const App: React.FC = () => {
                       }`}
                   >
                     {isAllDone ? (
-                      'All Pages Processed'
+                      '所有页面处理完毕'
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4 mr-2" />
-                        Start Repair
+                        开始修复
                       </>
                     )}
                   </button>
@@ -400,7 +400,7 @@ const App: React.FC = () => {
                     className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-all bg-red-600 hover:bg-red-700 hover:shadow-lg transform active:scale-95"
                   >
                     <StopCircle className="w-4 h-4 mr-2" />
-                    Stop Processing
+                    停止处理
                   </button>
                 )}
 
@@ -411,21 +411,21 @@ const App: React.FC = () => {
                       className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                     >
                       <Download className="w-4 h-4 mr-2" />
-                      Download PDF
+                      下载 PDF
                     </button>
                     <button
                       onClick={handleDownloadPpt}
                       className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                     >
                       <Presentation className="w-4 h-4 mr-2" />
-                      Export to PPT
+                      导出为 PPT
                     </button>
                     <button
                       onClick={handleDownloadZip}
                       className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                     >
                       <FileArchive className="w-4 h-4 mr-2" />
-                      Download All Images (ZIP)
+                      下载所有图片 (ZIP)
                     </button>
                   </div>
                 )}
@@ -438,7 +438,7 @@ const App: React.FC = () => {
             {pages.length === 0 ? (
                <div className="h-96 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center text-gray-400">
                   <FileText className="w-16 h-16 mb-4 opacity-20" />
-                  <p>Upload a PDF to view pages</p>
+                  <p>上传 PDF 以查看页面</p>
                </div>
             ) : (
               <ProcessingQueue 
