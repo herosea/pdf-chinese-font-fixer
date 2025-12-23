@@ -1,3 +1,4 @@
+
 export interface PdfPage {
   pageNumber: number;
   originalImage: string; // Base64
@@ -24,3 +25,16 @@ export interface AppState {
   quality: ImageQuality;
   isApiKeyReady: boolean;
 }
+
+export interface Session {
+  id: string;
+  name: string;
+  createdAt: number;
+  lastModified: number;
+  pages: PdfPage[];
+  fileName: string;
+  customPrompt: string;
+  quality: ImageQuality;
+}
+
+export type SessionMetadata = Omit<Session, 'pages'>;
