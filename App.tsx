@@ -31,6 +31,7 @@ const App: React.FC = () => {
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const processingOcrIds = useRef<Set<string>>(new Set());
   const MAX_CONCURRENT_OCR = 3; 
@@ -120,6 +121,14 @@ const App: React.FC = () => {
         setPages([newPage]);
       } else { setError('不支持的文件格式。'); }
     } catch (err) { setError('读取文件失败。'); }
+    // Reset value to allow selecting the same file again if needed
+    if (event.target) event.target.value = '';
+  };
+
+  const triggerFileInput = () => {
+    if (!isProcessing && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   const handleCompressOnly = async () => {
@@ -260,14 +269,24 @@ const App: React.FC = () => {
             <ApiKeySelector onReady={() => { setIsApiKeyReady(true); setKeyError(false); }} forceShow={keyError} />
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* 设置栏: 压缩至 2/12 宽度以让出更多图片空间 */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                   <h2 className="text-[9px] font-black mb-3 flex items-center gap-2 text-gray-400 uppercase tracking-widest"><Upload className="w-3.5 h-3.5" /> 载入媒体</h2>
-                  <div className="relative border border-dashed border-gray-200 rounded-xl p-4 hover:bg-blue-50/30 hover:border-blue-200 transition-all text-center group cursor-pointer bg-gray-50/30">
-                    <input type="file" accept="application/pdf,image/*" onChange={handleFileChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isProcessing} />
+                  <div 
+                    onClick={triggerFileInput}
+                    className={`relative border border-dashed border-gray-200 rounded-xl p-4 transition-all text-center group cursor-pointer active:scale-[0.98] 
+                      ${isProcessing ? 'opacity-50 grayscale cursor-not-allowed' : 'hover:bg-blue-50/50 hover:border-blue-400 hover:shadow-sm bg-gray-50/30'}`}
+                  >
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="application/pdf,image/*" 
+                      onChange={handleFileChange} 
+                      className="hidden" 
+                      disabled={isProcessing} 
+                    />
                     <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 group-hover:shadow-md transition-all">
                         {fileName ? <FileText className="w-4 h-4 text-green-600" /> : <FileUp className="w-4 h-4 text-blue-600" />}
                       </div>
                       <div className="text-[10px] font-black text-gray-600 uppercase tracking-tighter">
@@ -284,7 +303,7 @@ const App: React.FC = () => {
                       <label className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-2 block">目标画质</label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {['1K', '2K', '4K'].map(q => (
-                          <button key={q} onClick={() => setQuality(q as any)} className={`py-1.5 text-[9px] font-black rounded-lg border transition-all ${quality === q ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-100 text-gray-400'}`}>{q}</button>
+                          <button key={q} onClick={() => setQuality(q as any)} className={`py-1.5 text-[9px] font-black rounded-lg border transition-all ${quality === q ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{q}</button>
                         ))}
                       </div>
                     </div>
@@ -303,17 +322,17 @@ const App: React.FC = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sticky top-4">
                   {!isProcessing ? (
                     <div className="space-y-2">
-                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-xs font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group">
+                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-xs font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95">
                         <Sparkles className="w-3.5 h-3.5 mr-2 group-hover:rotate-12 transition-transform" /> 
                         开始重构
                       </button>
-                      <button onClick={handleCompressOnly} disabled={pages.length === 0 || isExporting} className="w-full flex items-center justify-center py-2 border border-gray-100 text-gray-600 rounded-xl font-bold text-[10px] hover:bg-gray-50 disabled:opacity-30">
+                      <button onClick={handleCompressOnly} disabled={pages.length === 0 || isExporting} className="w-full flex items-center justify-center py-2 border border-gray-100 text-gray-600 rounded-xl font-bold text-[10px] hover:bg-gray-50 disabled:opacity-30 active:scale-95">
                         {isExporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Zap className="w-3 h-3 mr-2" />}
                         仅压体积
                       </button>
                     </div>
                   ) : (
-                    <button onClick={handleStopProcessing} className="w-full flex items-center justify-center py-3 bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition-all">
+                    <button onClick={handleStopProcessing} className="w-full flex items-center justify-center py-3 bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition-all active:scale-95">
                       <StopCircle className="w-3.5 h-3.5 mr-2" /> 
                       停止
                     </button>
@@ -321,10 +340,10 @@ const App: React.FC = () => {
                   {pages.some(p => p.status === 'completed') && !isProcessing && (
                     <div className="mt-4 space-y-1.5">
                       <div className="grid grid-cols-2 gap-1.5">
-                        <button onClick={() => generatePdfFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50"><FileText className="w-3 h-3" /> PDF</button>
-                        <button onClick={() => generatePptFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50"><Presentation className="w-3 h-3" /> PPT</button>
+                        <button onClick={() => generatePdfFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50 active:scale-95"><FileText className="w-3 h-3" /> PDF</button>
+                        <button onClick={() => generatePptFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50 active:scale-95"><Presentation className="w-3 h-3" /> PPT</button>
                       </div>
-                      <button onClick={() => downloadAllAsZip(pages, sessionName || fileName)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center gap-2 text-[9px] font-black hover:bg-blue-100">
+                      <button onClick={() => downloadAllAsZip(pages, sessionName || fileName)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center gap-2 text-[9px] font-black hover:bg-blue-100 active:scale-95">
                         <Archive className="w-3 h-3" /> 打包高清图
                       </button>
                     </div>
@@ -332,7 +351,6 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* 队列栏: 占据 10/12 宽度 */}
               <div className="lg:col-span-10">
                 <ProcessingQueue 
                   pages={pages} 

@@ -127,101 +127,94 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
 
                 {isExpanded && (
                   <div className="p-8 border-t border-blue-50 bg-white animate-in slide-in-from-top-4 duration-500">
-                    {/* 顶部超大预览区：利用所有横向空间 */}
-                    <div className="space-y-4 mb-8">
-                      <div className="flex justify-between items-end px-1">
-                        <div>
-                          <h5 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2 mb-1">
-                            <ImageIcon className="w-4 h-4" /> 巨幕视图对照
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 min-h-[750px]">
+                      {/* 左侧：超大预览区 (占 9/12) */}
+                      <div className="lg:col-span-9 flex flex-col gap-4">
+                        <div className="flex justify-between items-end px-1">
+                          <h5 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                            <ImageIcon className="w-4 h-4" /> 巨幕对照视图
                           </h5>
-                          <p className="text-xs text-gray-500">点击下方图像中心可进入全屏沉浸模式，右上角可切换修复前后状态。</p>
+                          <div className="flex bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
+                            {(['original', 'fixed', 'compressed'] as PreviewType[]).map((mode) => {
+                              const isAvailable = (mode === 'original') || (mode === 'fixed' && page.processedImage) || (mode === 'compressed' && page.compressedImage);
+                              return (
+                                <button
+                                  key={mode}
+                                  disabled={!isAvailable}
+                                  onClick={() => setPreviewModes(prev => ({...prev, [page.id]: mode}))}
+                                  className={`px-6 py-2 text-xs font-bold rounded-xl transition-all ${currentMode === mode ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600 disabled:opacity-20'}`}
+                                >
+                                  {mode === 'original' ? '原件' : mode === 'fixed' ? '4K 修复' : '压缩'}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                        <div className="flex bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
-                          {(['original', 'fixed', 'compressed'] as PreviewType[]).map((mode) => {
-                            const isAvailable = (mode === 'original') || (mode === 'fixed' && page.processedImage) || (mode === 'compressed' && page.compressedImage);
-                            return (
-                              <button
-                                key={mode}
-                                disabled={!isAvailable}
-                                onClick={() => setPreviewModes(prev => ({...prev, [page.id]: mode}))}
-                                className={`px-5 py-2 text-xs font-bold rounded-xl transition-all ${currentMode === mode ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600 disabled:opacity-20'}`}
-                              >
-                                {mode === 'original' ? '原件' : mode === 'fixed' ? '4K 修复' : '压缩'}
-                              </button>
-                            );
-                          })}
+                        
+                        <div 
+                          className="flex-1 bg-gray-50 rounded-[40px] flex items-center justify-center overflow-hidden border border-gray-100 shadow-inner relative group cursor-zoom-in transition-all hover:shadow-2xl"
+                          onClick={() => setPreview({ url: previewUrl, title: `页面 ${page.pageNumber} - ${getModeLabel(currentMode)}` })}
+                        >
+                          <img 
+                            src={previewUrl} 
+                            className="max-w-[95%] max-h-[95%] object-contain transition-all duration-700 group-hover:scale-[1.02]" 
+                            alt={`页面预览 ${page.pageNumber}`}
+                          />
+                          <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <div className="bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold border border-white/20">
+                                <Maximize2 className="w-4 h-4" />
+                                点击进入全屏模式
+                             </div>
+                          </div>
+                          
+                          {!page.processedImage && !hasOcr && !extracting && (
+                            <div className="absolute inset-0 bg-white/40 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center animate-in fade-in">
+                              <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4 drop-shadow-md" />
+                              <h6 className="text-xl font-black text-gray-900 drop-shadow-sm">文字识别中...</h6>
+                              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-2">Gemini 正在提取语义</p>
+                            </div>
+                          )}
+
+                          {page.status === 'processing' && (
+                            <div className="absolute inset-0 bg-blue-600/5 backdrop-blur-sm flex items-center justify-center">
+                              <div className="bg-white px-8 py-5 rounded-3xl shadow-2xl border border-blue-100 flex flex-col items-center gap-4">
+                                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+                                <span className="text-sm font-black text-blue-600 uppercase tracking-widest animate-pulse">4K 边缘重构中...</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
-                      <div 
-                        className="bg-gray-50 rounded-[40px] h-[700px] flex items-center justify-center overflow-hidden border border-gray-100 shadow-inner relative group cursor-zoom-in transition-all hover:shadow-2xl"
-                        onClick={() => setPreview({ url: previewUrl, title: `页面 ${page.pageNumber} - ${getModeLabel(currentMode)}` })}
-                      >
-                        <img 
-                          src={previewUrl} 
-                          className="max-w-[95%] max-h-[95%] object-contain transition-all duration-700 group-hover:scale-[1.03]" 
-                          alt={`页面预览 ${page.pageNumber}`}
-                        />
-
-                        {/* 全屏显眼引导 */}
-                        <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                           <div className="bg-black/60 backdrop-blur-xl text-white px-4 py-2 rounded-2xl flex items-center gap-2 text-xs font-bold border border-white/20">
-                              <Maximize2 className="w-4 h-4" />
-                              点击查看超清大图
-                           </div>
-                        </div>
-                        
-                        {!page.processedImage && !hasOcr && !extracting && (
-                          <div className="absolute inset-0 bg-white/90 backdrop-blur-lg flex flex-col items-center justify-center p-12 text-center animate-in fade-in">
-                            <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-xl border border-blue-100">
-                              <Clock className="w-10 h-10 text-blue-500" />
-                            </div>
-                            <h6 className="text-xl font-black text-gray-900 mb-2">深度语义提取中...</h6>
-                            <p className="text-sm text-gray-500 max-w-sm leading-relaxed font-medium">Gemini 正在识别该页面的文字层级，提取后的内容将出现在下方编辑器中，协助您精准重构。</p>
-                          </div>
-                        )}
-
-                        {page.status === 'processing' && (
-                          <div className="absolute inset-0 bg-blue-600/5 backdrop-blur-sm flex items-center justify-center">
-                            <div className="bg-white px-8 py-5 rounded-3xl shadow-2xl border border-blue-100 flex flex-col items-center gap-4">
-                              <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-                              <span className="text-sm font-black text-blue-600 uppercase tracking-widest animate-pulse">4K 字体边缘重构中...</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* 底部编辑器与控制 */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-t border-gray-50 pt-8">
-                      <div className="lg:col-span-8 space-y-4">
-                        <div className="flex justify-between items-center">
+                      {/* 右侧：纵向编辑器 (占 3/12) */}
+                      <div className="lg:col-span-3 flex flex-col gap-4">
+                        <div className="flex justify-between items-center px-1">
                           <h5 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                            <Type className="w-4 h-4" /> 智能重构指令 (语义微调)
+                            <Type className="w-4 h-4" /> 修复指令（含修改文字）
                           </h5>
-                          <button onClick={() => handleExtractText(page)} disabled={extracting || isProcessing} className="text-[11px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 hover:opacity-70 transition-opacity">
-                            <RefreshCw className={`w-4 h-4 ${extracting ? 'animate-spin' : ''}`} /> 重新扫描文字
+                          <button onClick={() => handleExtractText(page)} disabled={extracting || isProcessing} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="重新提取文字">
+                            <RefreshCw className={`w-4 h-4 ${extracting ? 'animate-spin' : ''}`} />
                           </button>
                         </div>
-                        <div className="relative">
+                        
+                        <div className="flex-1 flex flex-col gap-4 min-h-0">
                           <textarea
                             value={page.customPrompt || ''}
                             onChange={(e) => onUpdatePagePrompt(page.pageNumber, e.target.value)}
-                            placeholder="这里显示 AI 自动提取的文字。修改此处内容，图像重构时会以此为准修复错别字或模糊字迹..."
-                            className="w-full min-h-[180px] p-6 text-base leading-relaxed border border-gray-200 rounded-[24px] bg-gray-50/30 shadow-inner resize-none focus:ring-8 focus:ring-blue-100/50 focus:border-blue-500 focus:bg-white transition-all font-sans"
+                            placeholder="AI 提取的文字将在此显示，您可以修改它来纠正模糊或错误的汉字，重构时将以此内容为准..."
+                            className="flex-1 w-full p-5 text-sm leading-relaxed border border-gray-200 rounded-[24px] bg-gray-50/30 shadow-inner resize-none focus:ring-4 focus:ring-blue-100/50 focus:border-blue-500 focus:bg-white transition-all font-sans"
                           />
+                          
+                          <button 
+                            onClick={() => onRetry(page.id)} 
+                            disabled={isProcessing} 
+                            className="w-full py-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-[24px] font-black text-base flex items-center justify-center gap-3 shadow-xl hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50"
+                          >
+                            <Sparkles className="w-5 h-5" /> 
+                            {page.status === 'completed' ? '重新生成' : '开始重构'}
+                          </button>
+                          <p className="text-center text-[9px] text-gray-400 font-bold uppercase tracking-widest">耗时约 15 秒</p>
                         </div>
-                      </div>
-                      <div className="lg:col-span-4 flex flex-col h-full pt-6">
-                        <button 
-                          onClick={() => onRetry(page.id)} 
-                          disabled={isProcessing} 
-                          className="w-full py-8 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-[32px] font-black text-lg flex flex-col items-center justify-center gap-2 shadow-2xl shadow-blue-100 hover:shadow-blue-300 hover:-translate-y-1 active:translate-y-0 transition-all disabled:opacity-50 disabled:translate-y-0"
-                        >
-                          <Sparkles className="w-6 h-6" /> 
-                          {page.status === 'completed' ? '重新生成 4K 画质' : '立即重构该页'}
-                        </button>
-                        <p className="mt-4 text-center text-[10px] text-gray-400 font-bold uppercase tracking-widest">修复过程约需 10-20 秒</p>
                       </div>
                     </div>
                   </div>
