@@ -29,6 +29,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
+
+  // New states for format handling
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'ppt' | 'zip'>('ppt');
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -109,10 +112,6 @@ const App: React.FC = () => {
     if (pages.length === 0) setCurrentSessionId(crypto.randomUUID());
     setFileName(file.name); setSessionName(file.name); setError(null);
     
-    // Reset pages for new file load if simple logic, or append? 
-    // Logic below implies replacing or setting initial.
-    // Let's clear previous pages if loading a new main file.
-    
     try {
       if (file.type === 'application/pdf') {
         const newPages = await extractImagesFromPdf(file);
@@ -151,20 +150,48 @@ const App: React.FC = () => {
     }
   };
 
-  const handleCompressOnly = async () => {
+  const getBaseName = (name: string) => name.replace(/\.[^/.]+$/, "");
+
+  const handleExport = async () => {
     if (pages.length === 0 || isExporting) return;
     setIsExporting(true);
+    
     try {
-      const compressedPages = await Promise.all(pages.map(async (page) => {
-        let compressed = page.originalImage;
+      // 1. Prepare images: Apply compression if needed to either the processed or original image
+      const pagesToExport = await Promise.all(pages.map(async (page) => {
+        // Prioritize processed image, fallback to original
+        const sourceImage = page.processedImage || page.originalImage;
+        let finalImage = sourceImage;
+        
+        // Apply compression based on current settings
         if (compressionLevel !== 'none') {
-          compressed = await compressImage(page.originalImage, getCompressionRatio(compressionLevel));
+          finalImage = await compressImage(sourceImage, getCompressionRatio(compressionLevel));
         }
-        return { ...page, compressedImage: compressed };
+        
+        // Return a page object with the final image set as 'compressedImage'
+        // Generators use compressedImage || processedImage || originalImage
+        return {
+          ...page,
+          compressedImage: finalImage 
+        };
       }));
-      generatePdfFromImages(compressedPages, `${fileName.replace(/\.(pdf|pptx?)$/i, '')}_仅压缩`);
+
+      const outputName = sessionName || getBaseName(fileName);
+      // Add suffix based on what we are exporting
+      const hasRepaired = pages.some(p => p.status === 'completed');
+      const suffix = hasRepaired ? '_修复版' : '_压缩版';
+      const finalFileName = `${outputName}${suffix}`;
+      
+      if (exportFormat === 'ppt') {
+        await generatePptFromImages(pagesToExport, finalFileName);
+      } else if (exportFormat === 'zip') {
+        await downloadAllAsZip(pagesToExport, finalFileName);
+      } else {
+        generatePdfFromImages(pagesToExport, finalFileName);
+      }
     } catch (e) {
-      alert("压缩失败：" + e);
+      console.error(e);
+      alert("导出失败: " + (e as Error).message);
     } finally {
       setIsExporting(false);
     }
@@ -212,11 +239,8 @@ const App: React.FC = () => {
       try {
         const combinedPrompt = [customPrompt.trim(), page.customPrompt?.trim()].filter(Boolean).join('\n\n[特定内容]:\n');
         const enhanced = await enhancePageImage(page.originalImage, quality, page.aspectRatio, controller.signal, combinedPrompt);
-        let compressed = null;
-        if (compressionLevel !== 'none') {
-          compressed = await compressImage(enhanced, getCompressionRatio(compressionLevel));
-        }
-        setPages(prev => prev.map(p => p.id === page.id ? { ...p, processedImage: enhanced, compressedImage: compressed, status: 'completed' } : p));
+        // During processing, we don't compress immediately to save time, compression happens at export
+        setPages(prev => prev.map(p => p.id === page.id ? { ...p, processedImage: enhanced, status: 'completed' } : p));
       } catch (err: any) {
         if (controller.signal.aborted) break;
         setPages(prev => prev.map(p => p.id === page.id ? { ...p, status: 'error' } : p));
@@ -236,11 +260,7 @@ const App: React.FC = () => {
     try {
       const combinedPrompt = [customPrompt.trim(), page.customPrompt?.trim()].filter(Boolean).join('\n\n[特定内容]:\n');
       const enhanced = await enhancePageImage(page.originalImage, quality, page.aspectRatio, controller.signal, combinedPrompt);
-      let compressed = null;
-      if (compressionLevel !== 'none') {
-        compressed = await compressImage(enhanced, getCompressionRatio(compressionLevel));
-      }
-      setPages(prev => prev.map(p => p.id === id ? { ...p, processedImage: enhanced, compressedImage: compressed, status: 'completed' } : p));
+      setPages(prev => prev.map(p => p.id === id ? { ...p, processedImage: enhanced, status: 'completed' } : p));
     } catch (e) {
       setPages(prev => prev.map(p => p.id === id ? { ...p, status: 'error' } : p));
     } finally { setIsProcessing(false); }
@@ -343,19 +363,36 @@ const App: React.FC = () => {
                         <option value="high">压 (30%)</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-2 block">导出格式</label>
+                      <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as any)} className="w-full px-2 py-1.5 border border-gray-100 rounded-lg text-[10px] bg-gray-50 font-bold focus:ring-2 focus:ring-blue-100 outline-none">
+                        <option value="ppt">PPT演示文稿 (.pptx)</option>
+                        <option value="pdf">PDF文档 (.pdf)</option>
+                        <option value="zip">图片包 (.zip)</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sticky top-4">
                   {!isProcessing ? (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-xs font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95">
                         <Sparkles className="w-3.5 h-3.5 mr-2 group-hover:rotate-12 transition-transform" /> 
                         开始重构
                       </button>
-                      <button onClick={handleCompressOnly} disabled={pages.length === 0 || isExporting} className="w-full flex items-center justify-center py-2 border border-gray-100 text-gray-600 rounded-xl font-bold text-[10px] hover:bg-gray-50 disabled:opacity-30 active:scale-95">
-                        {isExporting ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Zap className="w-3 h-3 mr-2" />}
-                        仅压体积
+                      
+                      <button 
+                        onClick={handleExport} 
+                        disabled={pages.length === 0 || isExporting} 
+                        className="w-full flex items-center justify-center py-3 bg-blue-600 text-white shadow-lg shadow-blue-200 rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none"
+                      >
+                        {isExporting ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : (
+                          exportFormat === 'ppt' ? <Presentation className="w-3.5 h-3.5 mr-2" /> :
+                          exportFormat === 'pdf' ? <FileText className="w-3.5 h-3.5 mr-2" /> :
+                          <Archive className="w-3.5 h-3.5 mr-2" />
+                        )}
+                        {pages.some(p => p.status === 'completed') ? '导出修复结果' : '导出文件 (仅压缩)'}
                       </button>
                     </div>
                   ) : (
@@ -363,17 +400,6 @@ const App: React.FC = () => {
                       <StopCircle className="w-3.5 h-3.5 mr-2" /> 
                       停止
                     </button>
-                  )}
-                  {pages.some(p => p.status === 'completed') && !isProcessing && (
-                    <div className="mt-4 space-y-1.5">
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <button onClick={() => generatePdfFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50 active:scale-95"><FileText className="w-3 h-3" /> PDF</button>
-                        <button onClick={() => generatePptFromImages(pages, sessionName || fileName)} className="py-2 bg-white border border-gray-100 text-gray-900 rounded-lg flex items-center justify-center gap-1.5 text-[9px] font-black hover:bg-gray-50 active:scale-95"><Presentation className="w-3 h-3" /> PPT</button>
-                      </div>
-                      <button onClick={() => downloadAllAsZip(pages, sessionName || fileName)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center gap-2 text-[9px] font-black hover:bg-blue-100 active:scale-95">
-                        <Archive className="w-3 h-3" /> 打包高清图
-                      </button>
-                    </div>
                   )}
                 </div>
               </div>

@@ -2,57 +2,62 @@
 import { GoogleGenAI } from "@google/genai";
 import { ImageQuality } from "../types";
 
+// Utility to remove invisible characters that cause rendering artifacts
+export const cleanHiddenChars = (text: string): string => {
+  if (!text) return '';
+  return text
+    // Remove Object Replacement Character (\ufffc) - common in PDF/Word copy-paste
+    .replace(/\ufffc/g, '')
+    // Remove Replacement Character (\ufffd)
+    .replace(/\ufffd/g, '')
+    // Remove Zero Width Space (\u200b)
+    .replace(/\u200b/g, '')
+    // Remove Byte Order Mark (\ufeff)
+    .replace(/\ufeff/g, '')
+    // Remove other obscure control characters (excluding normal whitespace 0x09, 0x0A, 0x0D)
+    // Range: 0x00-0x08, 0x0B, 0x0C, 0x0E-0x1F
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');
+};
+
 // The prompt provided by the user for fixing Chinese characters
 const SYSTEM_PROMPT = `
 ## 角色定义
 
-你现在是搭载“**多模态视觉认知引擎 (Multi-modal Visual Cognitive Engine)**”的高阶图像修复专家。你具备**上下文感知 OCR (Context-aware OCR)** 与**生成式图像增强 (Generative Image Upscaling)** 的核心能力。
+你现在是搭载“**多模态视觉认知引擎**”的高阶图像修复专家。你的核心任务是执行“**语义级图像重构**”，特别专注于**简体中文文档**的修复。
 
-## 任务目标
+## 核心法则 (Prime Directives)
 
-执行“**语义级图像重构 (Semantic-Level Image Reconstruction)**”。针对输入的低分辨率或模糊图像，利用逻辑推演修复文字内容，并输出 4K 广色域的高保真图像。
+1.  **文本绝对优先权 (Text Supremacy)**：
+    *   图像中的**视觉像素**仅作为**排版和风格**的参考。
+    *   **用户提供的文本指令**或者是**上下文逻辑推演出的文本**是**内容**的唯一真理。
+    *   **冲突解决**：当原图看起来像字符 A，但用户指令/上下文逻辑说是字符 B 时，**必须画成字符 B**。
+
+2.  **高保真重构 (High-Fidelity Reconstruction)**：
+    *   保留原图的版面布局、字体风格（宋体/黑体/手写体等）、字号大小、颜色和背景纹理。
+    *   输出必须是 4K 分辨率，消除锯齿，边缘锐利，达到印刷级清晰度。
 
 ---
 
-## 执行协议 (思维链与执行流程)
+## 执行协议 (思维链)
 
-请在后台严格执行以下运算流程，并直接输出最终图像：
-
-1. **【光学字符逻辑推演 (Optical & Logical Inference)】**
-    
-    - 对图像进行高维度扫描，锁定模糊文字区域 (ROI)。
-        
-    - 启动“上下文语义分析 (Contextual Semantic Analysis)”：不仅是识别像素，更要依据前后文逻辑、常见词汇库，推算出模糊区域原本应有的“**简体中文**”内容。
-        
-    - 容错机制：若像素信息丢失，优先采用信心分数 (Confidence Score) 最高的语义填补。
-        
-2. **【同构视觉合成 (Isomorphic Visual Synthesis)】**
-    
-    - 严格继承原图的拓扑结构 (Topological Structure)：版面配置、物体坐标、透视消点必须与原图完全锁定。
-        
-    - 风格迁移 (Style Transfer)：精确捕捉原图的设计语言（配色、材质、光影），将其应用于新的高解析画布上。
-        
-3. **【向量级细节渲染 (Vector-Grade Rendering)】**
-    
-    - 将文字与线条边缘进行“抗锯齿 (Anti-aliasing)”与“锐利化处理”。
-        
-    - 文字笔画必须呈现“印刷级”的清晰度，彻底消除 JPEG 压缩噪点 (Artifacts) 与边缘溢色。
-        
+1.  **锁定布局**：扫描原图，锁定每一行、每一个文本块的坐标位置。
+2.  **内容注入与清洗**：
+    *   读取用户的“目标文本内容”。
+    *   **比对**：将目标文本与原图视觉内容比对。
+    *   **删除判定**：如果原图中有某段文字，但用户的“目标文本内容”中没有，**视为用户有意删除**。请在生成图像时移除该部分内容（用背景色填充/留白）。
+    *   **警告**：严禁通过“脑补”产生原图中不存在的额外文字。
+3.  **风格渲染**：将目标文本内容，按照锁定的布局和原图的字体风格，重新绘制在画布上。
+4.  **画质增强**：对文字边缘进行抗锯齿处理，去除噪点。
 
 ---
 
 ## 负向约束 (Exclusion Criteria)
 
-- 严禁产生无法阅读的“伪文字 (Gibberish)”或繁体中文。
-    
-- 严禁改变原图的关键构图结构。
-    
-- 严禁输出模糊、低对比度或过度平滑的油画感图像。
-    
-
-## 输出要求
-
-**仅输出重构后的图像，无需任何文字解释。**
+- **严禁**保留原图中有、但用户提供的文本中没有的段落（必须删除）。
+- **严禁**输出无法阅读的伪文字。
+- **严禁**改变原图的段落结构和换行位置（除非该段落已被用户删除）。
+- **严禁**保留原图中的模糊噪点或压缩伪影。
+- **仅输出重构后的图像，无需任何文字解释。**
 `;
 
 const OCR_PROMPT = `
@@ -62,7 +67,8 @@ const OCR_PROMPT = `
 1. 保持原始文本的换行和层级顺序。
 2. 纠正明显的笔画断裂或因模糊导致的错误识别（基于词法逻辑）。
 3. 仅输出提取出的文字内容，严禁输出任何解释性说明、Markdown 代码块标签或引言。
-4. 如果图中包含表格，请尝试保持表格的逻辑对应关系。
+4. 严禁包含 \\ufffc (OBJ)、\\ufffd 或其他不可见控制字符。
+5. 如果图中包含表格，请尝试保持表格的逻辑对应关系。
 `;
 
 // Helper to determine closest supported aspect ratio for Gemini
@@ -99,7 +105,9 @@ export const extractTextFromPage = async (base64Image: string, signal?: AbortSig
     }
   });
 
-  return response.text || "";
+  const rawText = response.text || "";
+  // Immediately clean any invisible artifacts from the model output
+  return cleanHiddenChars(rawText).trim();
 };
 
 export const enhancePageImage = async (
@@ -114,8 +122,29 @@ export const enhancePageImage = async (
   }
 
   let finalPrompt = SYSTEM_PROMPT;
+  
+  // 增强后的 Prompt 注入逻辑
   if (customPrompt && customPrompt.trim().length > 0) {
-    finalPrompt += `\n\n## 用户额外指令 (User Additional Instructions)\n注意：请在修复图像的同时，严格遵守以下额外指令，确保最终图像中的文字与以下内容完全一致：\n${customPrompt}`;
+    // Ensure the prompt used for generation is also clean of artifacts
+    const cleanedCustomPrompt = cleanHiddenChars(customPrompt);
+    
+    finalPrompt += `
+    
+    ================================================================================
+    ⚠️ 【最高优先级修正指令 (CRITICAL OVERRIDE)】 ⚠️
+    
+    检测到用户提供了本页面的**精确文本内容 (Ground Truth)**。
+    
+    **执行要求：**
+    1. **完全忽略**原图中与下方文本不一致的文字像素形状。
+    2. **强制替换**：必须将画面中的文字内容严格替换为下方提供的文本。
+    3. **删除与留白**：下方的文本是页面的**全集**。如果原图中有某些段落或乱码在下方文本中**不存在**，请**直接删除**该部分图像内容（留白处理），严禁保留。
+    4. **一一对应**：请按照原图的排版位置，将下方文本填入对应的区域。
+    
+    [[ 用户指定的正确文本内容 ]]：
+    ${cleanedCustomPrompt}
+    ================================================================================
+    `;
   }
 
   const MAX_RETRIES = 3;

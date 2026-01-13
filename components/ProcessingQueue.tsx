@@ -5,10 +5,10 @@ import {
   CheckCircle, Loader2, XCircle, Clock, Search, ArrowRight, RefreshCw, 
   MessageSquare, Play, ChevronDown, ChevronUp, ZoomIn, Download, 
   Upload as UploadIcon, ArrowLeftCircle, Wand2, Type, Maximize2, Sparkles, Trash2, Plus,
-  Image as ImageIcon, Fullscreen
+  Image as ImageIcon, Fullscreen, Eraser
 } from 'lucide-react';
 import ImagePreviewModal from './ImagePreviewModal';
-import { extractTextFromPage } from '../services/geminiService';
+import { extractTextFromPage, cleanHiddenChars } from '../services/geminiService';
 
 interface ProcessingQueueProps {
   pages: PdfPage[];
@@ -37,10 +37,20 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
   const handleExtractText = async (page: PdfPage) => {
     setIsExtracting(prev => ({ ...prev, [page.id]: true }));
     try {
-      const text = await extractTextFromPage(page.originalImage);
-      if (text) onUpdatePagePrompt(page.pageNumber, text);
+      const rawText = await extractTextFromPage(page.originalImage);
+      if (rawText) {
+        // Text is already cleaned by the service
+        onUpdatePagePrompt(page.pageNumber, rawText);
+      }
     } catch (err) { alert("文字提取失败，请重试。"); }
     finally { setIsExtracting(prev => ({ ...prev, [page.id]: false })); }
+  };
+
+  const handleTextChange = (pageNumber: number, newText: string) => {
+    // Clean user input on the fly to prevent invisible chars from sticking
+    // We do NOT trim here to allow user to type spaces
+    const cleaned = cleanHiddenChars(newText);
+    onUpdatePagePrompt(pageNumber, cleaned);
   };
 
   const getPreviewUrl = (page: PdfPage, mode: PreviewType) => {
@@ -200,7 +210,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                         <div className="flex-1 flex flex-col gap-4 min-h-0">
                           <textarea
                             value={page.customPrompt || ''}
-                            onChange={(e) => onUpdatePagePrompt(page.pageNumber, e.target.value)}
+                            onChange={(e) => handleTextChange(page.pageNumber, e.target.value)}
                             placeholder="AI 提取的文字将在此显示，您可以修改它来纠正模糊或错误的汉字，重构时将以此内容为准..."
                             className="flex-1 w-full p-5 text-sm leading-relaxed border border-gray-200 rounded-[24px] bg-gray-50/30 shadow-inner resize-none focus:ring-4 focus:ring-blue-100/50 focus:border-blue-500 focus:bg-white transition-all font-sans"
                           />
