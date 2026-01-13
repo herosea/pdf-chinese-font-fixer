@@ -168,10 +168,10 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                           </div>
                           
                           {!page.processedImage && !hasOcr && !extracting && (
-                            <div className="absolute inset-0 bg-white/40 backdrop-blur-md flex flex-col items-center justify-center p-12 text-center animate-in fade-in">
+                            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center p-12 text-center animate-in fade-in">
                               <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4 drop-shadow-md" />
-                              <h6 className="text-xl font-black text-gray-900 drop-shadow-sm">文字识别中...</h6>
-                              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-2">Gemini 正在提取语义</p>
+                              <h6 className="text-xl font-black text-gray-900 drop-shadow-md">文字识别中...</h6>
+                              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-2 drop-shadow-sm">Gemini 正在提取语义</p>
                             </div>
                           )}
 
