@@ -4,6 +4,7 @@ import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as Ima
 import { PdfPage, ImageQuality, SessionMetadata, CompressionLevel } from './types';
 import { extractImagesFromPdf, generatePdfFromImages, fileToBase64, getImageDimensions } from './services/pdfService';
 import { generatePptFromImages } from './services/pptService';
+import { extractImagesFromPpt } from './services/pptImportService';
 import { enhancePageImage, extractTextFromPage } from './services/geminiService';
 import { downloadAllAsZip } from './services/zipService';
 import { compressImage, getCompressionRatio } from './services/imageService';
@@ -107,10 +108,23 @@ const App: React.FC = () => {
     if (!file) return;
     if (pages.length === 0) setCurrentSessionId(crypto.randomUUID());
     setFileName(file.name); setSessionName(file.name); setError(null);
+    
+    // Reset pages for new file load if simple logic, or append? 
+    // Logic below implies replacing or setting initial.
+    // Let's clear previous pages if loading a new main file.
+    
     try {
       if (file.type === 'application/pdf') {
         const newPages = await extractImagesFromPdf(file);
         setPages(newPages);
+      } else if (file.name.toLowerCase().endsWith('.pptx') || file.type.includes('presentation')) {
+        const newPages = await extractImagesFromPpt(file);
+        if (newPages.length === 0) {
+          setError('未在 PPT 中发现嵌入的图片。如果是纯文本 PPT，请先导出为 PDF 再上传。');
+          setPages([]);
+        } else {
+          setPages(newPages);
+        }
       } else if (file.type.startsWith('image/')) {
         const base64 = await fileToBase64(file);
         const { width, height } = await getImageDimensions(base64);
@@ -119,9 +133,15 @@ const App: React.FC = () => {
           compressedImage: null, status: 'pending', width, height, aspectRatio: width/height, customPrompt: ''
         };
         setPages([newPage]);
-      } else { setError('不支持的文件格式。'); }
-    } catch (err) { setError('读取文件失败。'); }
-    // Reset value to allow selecting the same file again if needed
+      } else if (file.name.toLowerCase().endsWith('.ppt')) {
+        setError('暂不支持旧版 .ppt 格式，请另存为 .pptx 或 PDF 后重试。');
+      } else { 
+        setError('不支持的文件格式。请上传 PDF, PPTX 或图片。'); 
+      }
+    } catch (err: any) { 
+      setError(err.message || '读取文件失败。'); 
+    }
+    
     if (event.target) event.target.value = '';
   };
 
@@ -142,7 +162,7 @@ const App: React.FC = () => {
         }
         return { ...page, compressedImage: compressed };
       }));
-      generatePdfFromImages(compressedPages, `${fileName.replace(/\.pdf$/i, '')}_仅压缩`);
+      generatePdfFromImages(compressedPages, `${fileName.replace(/\.(pdf|pptx?)$/i, '')}_仅压缩`);
     } catch (e) {
       alert("压缩失败：" + e);
     } finally {
@@ -268,6 +288,13 @@ const App: React.FC = () => {
           <div className="max-w-[1800px] mx-auto">
             <ApiKeySelector onReady={() => { setIsApiKeyReady(true); setKeyError(false); }} forceShow={keyError} />
             
+            {error && (
+              <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-red-600 shadow-sm animate-in slide-in-from-top-2">
+                <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                <p className="text-sm font-bold">{error}</p>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -280,17 +307,17 @@ const App: React.FC = () => {
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept="application/pdf,image/*" 
+                      accept="application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*" 
                       onChange={handleFileChange} 
                       className="hidden" 
                       disabled={isProcessing} 
                     />
                     <div className="flex flex-col items-center">
                       <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 group-hover:shadow-md transition-all">
-                        {fileName ? <FileText className="w-4 h-4 text-green-600" /> : <FileUp className="w-4 h-4 text-blue-600" />}
+                        {fileName ? <FileText className="w-4 h-4 text-green-600" /> : <Presentation className="w-4 h-4 text-blue-600" />}
                       </div>
                       <div className="text-[10px] font-black text-gray-600 uppercase tracking-tighter">
-                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF/图片</span>}
+                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF/PPT/图片</span>}
                       </div>
                     </div>
                   </div>
