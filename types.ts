@@ -1,8 +1,10 @@
 
 export interface PdfPage {
+  id: string; // Unique ID for keying
   pageNumber: number;
   originalImage: string; // Base64
   processedImage: string | null; // Base64
+  compressedImage: string | null; // Base64 (Compressed version of processed)
   status: 'pending' | 'processing' | 'completed' | 'error';
   width: number;
   height: number;
@@ -11,6 +13,7 @@ export interface PdfPage {
 }
 
 export type ImageQuality = '1K' | '2K' | '4K';
+export type CompressionLevel = 'none' | 'low' | 'balanced' | 'high';
 
 export interface ProcessingStats {
   total: number;
@@ -24,6 +27,7 @@ export interface AppState {
   isProcessing: boolean;
   quality: ImageQuality;
   isApiKeyReady: boolean;
+  compressionLevel: CompressionLevel;
 }
 
 export interface Session {
@@ -35,6 +39,7 @@ export interface Session {
   fileName: string;
   customPrompt: string;
   quality: ImageQuality;
+  compressionLevel: CompressionLevel;
 }
 
 export type SessionMetadata = Omit<Session, 'pages'>;

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { ImageQuality } from "../types";
 
@@ -54,6 +55,16 @@ const SYSTEM_PROMPT = `
 **仅输出重构后的图像，无需任何文字解释。**
 `;
 
+const OCR_PROMPT = `
+你是一个专业的 OCR 文字提取助手。
+任务：请识别并提取输入图像中所有的简体中文文本。
+要求：
+1. 保持原始文本的换行和层级顺序。
+2. 纠正明显的笔画断裂或因模糊导致的错误识别（基于词法逻辑）。
+3. 仅输出提取出的文字内容，严禁输出任何解释性说明、Markdown 代码块标签或引言。
+4. 如果图中包含表格，请尝试保持表格的逻辑对应关系。
+`;
+
 // Helper to determine closest supported aspect ratio for Gemini
 const getClosestAspectRatio = (ratio: number): "1:1" | "3:4" | "4:3" | "9:16" | "16:9" => {
   const supported = [
@@ -70,16 +81,26 @@ const getClosestAspectRatio = (ratio: number): "1:1" | "3:4" | "4:3" | "9:16" | 
   ).id;
 };
 
-// Safe access to API Key
-const getApiKey = () => {
-  if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-    return process.env.API_KEY;
-  }
-  return '';
-};
-
 // Sleep helper
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+export const extractTextFromPage = async (base64Image: string, signal?: AbortSignal): Promise<string> => {
+  // Always use process.env.API_KEY directly when initializing the GoogleGenAI client
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const base64Data = base64Image.split(',')[1] || base64Image;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview', // Use flash for faster OCR
+    contents: {
+      parts: [
+        { inlineData: { mimeType: 'image/jpeg', data: base64Data } },
+        { text: OCR_PROMPT }
+      ]
+    }
+  });
+
+  return response.text || "";
+};
 
 export const enhancePageImage = async (
   base64Image: string, 
@@ -92,14 +113,9 @@ export const enhancePageImage = async (
     throw new DOMException('Aborted', 'AbortError');
   }
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please set the API_KEY environment variable.");
-  }
-
   let finalPrompt = SYSTEM_PROMPT;
   if (customPrompt && customPrompt.trim().length > 0) {
-    finalPrompt += `\n\n## 用户额外指令 (User Additional Instructions)\n注意：请在修复图像的同时，严格遵守以下额外指令：\n${customPrompt}`;
+    finalPrompt += `\n\n## 用户额外指令 (User Additional Instructions)\n注意：请在修复图像的同时，严格遵守以下额外指令，确保最终图像中的文字与以下内容完全一致：\n${customPrompt}`;
   }
 
   const MAX_RETRIES = 3;
@@ -109,8 +125,8 @@ export const enhancePageImage = async (
     if (signal?.aborted) break;
 
     try {
-      // Re-instantiate Gemini per request to ensure use of most up-to-date API key
-      const ai = new GoogleGenAI({ apiKey });
+      // Re-instantiate Gemini right before call to ensure latest API key from process.env.API_KEY is used
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       const base64Data = base64Image.split(',')[1] || base64Image;
       const targetAspectRatio = getClosestAspectRatio(aspectRatio);
