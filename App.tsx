@@ -318,7 +318,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="text-[9px] font-black mb-3 flex items-center gap-2 text-gray-400 uppercase tracking-widest"><Upload className="w-3.5 h-3.5" /> 载入媒体</h2>
+                  <h2 className="text-xs font-bold mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wider"><Upload className="w-4 h-4" /> 载入媒体</h2>
                   <div 
                     onClick={triggerFileInput}
                     className={`relative border border-dashed border-gray-200 rounded-xl p-4 transition-all text-center group cursor-pointer active:scale-[0.98] 
@@ -333,39 +333,39 @@ const App: React.FC = () => {
                       disabled={isProcessing} 
                     />
                     <div className="flex flex-col items-center">
-                      <div className="w-8 h-8 bg-white rounded-lg shadow-sm flex items-center justify-center mb-2 group-hover:scale-110 group-hover:shadow-md transition-all">
-                        {fileName ? <FileText className="w-4 h-4 text-green-600" /> : <Presentation className="w-4 h-4 text-blue-600" />}
+                      <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 group-hover:shadow-md transition-all border border-gray-50">
+                        {fileName ? <FileText className="w-5 h-5 text-green-600" /> : <Presentation className="w-5 h-5 text-blue-600" />}
                       </div>
-                      <div className="text-[10px] font-black text-gray-600 uppercase tracking-tighter">
-                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF/PPT/图片</span>}
+                      <div className="text-sm font-bold text-gray-700 mt-1">
+                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF/PPT</span>}
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="text-[9px] font-black mb-3 flex items-center gap-2 text-gray-400 uppercase tracking-widest"><Layers className="w-3.5 h-3.5" /> 核心设置</h2>
+                  <h2 className="text-xs font-bold mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wider"><Layers className="w-4 h-4" /> 核心设置</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-2 block">目标画质</label>
+                      <label className="text-xs font-bold text-gray-500 mb-2 block">目标画质</label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {['1K', '2K', '4K'].map(q => (
-                          <button key={q} onClick={() => setQuality(q as any)} className={`py-1.5 text-[9px] font-black rounded-lg border transition-all ${quality === q ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'}`}>{q}</button>
+                          <button key={q} onClick={() => setQuality(q as any)} className={`py-2 text-xs font-bold rounded-lg border transition-all ${quality === q ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>{q}</button>
                         ))}
                       </div>
                     </div>
                     <div>
-                      <label className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-2 block">导出质量</label>
-                      <select value={compressionLevel} onChange={(e) => setCompressionLevel(e.target.value as any)} className="w-full px-2 py-1.5 border border-gray-100 rounded-lg text-[10px] bg-gray-50 font-bold focus:ring-2 focus:ring-blue-100 outline-none">
+                      <label className="text-xs font-bold text-gray-500 mb-2 block">导出质量</label>
+                      <select value={compressionLevel} onChange={(e) => setCompressionLevel(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-100 outline-none hover:border-gray-300 transition-colors">
                         <option value="none">无损 (原始)</option>
-                        <option value="low">高 (90%)</option>
-                        <option value="balanced">平 (60%)</option>
-                        <option value="high">压 (30%)</option>
+                        <option value="low">优质 (90%)</option>
+                        <option value="balanced">平衡 (60%)</option>
+                        <option value="high">极限 (30%)</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-[9px] font-black text-gray-300 uppercase tracking-widest mb-2 block">导出格式</label>
-                      <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as any)} className="w-full px-2 py-1.5 border border-gray-100 rounded-lg text-[10px] bg-gray-50 font-bold focus:ring-2 focus:ring-blue-100 outline-none">
+                      <label className="text-xs font-bold text-gray-500 mb-2 block">导出格式</label>
+                      <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-100 outline-none hover:border-gray-300 transition-colors">
                         <option value="ppt">PPT演示文稿 (.pptx)</option>
                         <option value="pdf">PDF文档 (.pdf)</option>
                         <option value="zip">图片包 (.zip)</option>
@@ -377,27 +377,27 @@ const App: React.FC = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sticky top-4">
                   {!isProcessing ? (
                     <div className="space-y-3">
-                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-xs font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95">
-                        <Sparkles className="w-3.5 h-3.5 mr-2 group-hover:rotate-12 transition-transform" /> 
+                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95">
+                        <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" /> 
                         开始重构
                       </button>
                       
                       <button 
                         onClick={handleExport} 
                         disabled={pages.length === 0 || isExporting} 
-                        className="w-full flex items-center justify-center py-3 bg-blue-600 text-white shadow-lg shadow-blue-200 rounded-xl text-xs font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none"
+                        className="w-full flex items-center justify-center py-3 bg-blue-600 text-white shadow-lg shadow-blue-200 rounded-xl text-sm font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50 disabled:shadow-none"
                       >
-                        {isExporting ? <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" /> : (
-                          exportFormat === 'ppt' ? <Presentation className="w-3.5 h-3.5 mr-2" /> :
-                          exportFormat === 'pdf' ? <FileText className="w-3.5 h-3.5 mr-2" /> :
-                          <Archive className="w-3.5 h-3.5 mr-2" />
+                        {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : (
+                          exportFormat === 'ppt' ? <Presentation className="w-4 h-4 mr-2" /> :
+                          exportFormat === 'pdf' ? <FileText className="w-4 h-4 mr-2" /> :
+                          <Archive className="w-4 h-4 mr-2" />
                         )}
                         {pages.some(p => p.status === 'completed') ? '导出修复结果' : '导出文件 (仅压缩)'}
                       </button>
                     </div>
                   ) : (
-                    <button onClick={handleStopProcessing} className="w-full flex items-center justify-center py-3 bg-red-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition-all active:scale-95">
-                      <StopCircle className="w-3.5 h-3.5 mr-2" /> 
+                    <button onClick={handleStopProcessing} className="w-full flex items-center justify-center py-3 bg-red-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition-all active:scale-95">
+                      <StopCircle className="w-4 h-4 mr-2" /> 
                       停止
                     </button>
                   )}
