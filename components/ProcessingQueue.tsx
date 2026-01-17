@@ -2,10 +2,9 @@
 import React, { useState } from 'react';
 import { PdfPage, CompressionLevel } from '../types';
 import { 
-  CheckCircle, Loader2, XCircle, Clock, Search, ArrowRight, RefreshCw, 
-  MessageSquare, Play, ChevronDown, ChevronUp, ZoomIn, Download, 
-  Upload as UploadIcon, ArrowLeftCircle, Wand2, Type, Maximize2, Sparkles, Trash2, Plus,
-  Image as ImageIcon, Fullscreen, Eraser, FileOutput
+  CheckCircle, Loader2, XCircle, RefreshCw, 
+  Play, Maximize2, Sparkles, Trash2, Plus,
+  Image as ImageIcon, Type
 } from 'lucide-react';
 import ImagePreviewModal from './ImagePreviewModal';
 import { extractTextFromPage, cleanHiddenChars } from '../services/geminiService';
@@ -22,7 +21,7 @@ interface ProcessingQueueProps {
 type PreviewType = 'original' | 'fixed';
 
 const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ 
-  pages, onRetry, onUpdatePagePrompt, onDeletePage, onInsertPage, compressionLevel
+  pages, onRetry, onUpdatePagePrompt, onDeletePage, onInsertPage
 }) => {
   const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
   const [expandedPromptIds, setExpandedPromptIds] = useState<Set<string>>(new Set());
