@@ -1,0 +1,134 @@
+{
+    "common": {
+        "login": "Login",
+        "logout": "Logout",
+        "getStarted": "Get Started",
+        "tryFree": "Try For Free",
+        "learnMore": "Learn More"
+    },
+    "nav": {
+        "home": "Home",
+        "pricing": "Pricing",
+        "app": "Open App",
+        "terms": "Terms of Service",
+        "privacy": "Privacy Policy",
+        "refund": "Refund Policy",
+        "contact": "Contact"
+    },
+    "hero": {
+        "badge": "AI-Powered",
+        "title": "Fix Chinese PDF Fonts",
+        "titleHighlight": "with AI",
+        "subtitle": "Instantly repair and enhance Chinese characters in your NotebookLM PDFs using advanced Gemini AI technology. Get crystal-clear 4K quality text.",
+        "cta": "Try 1 Page Free",
+        "ctaSecondary": "See Pricing",
+        "stats": {
+            "pages": "Pages Fixed",
+            "users": "Happy Users",
+            "quality": "4K Quality"
+        }
+    },
+    "features": {
+        "title": "Why Choose Us",
+        "subtitle": "Professional PDF repair powered by Google Gemini AI",
+        "items": {
+            "ai": {
+                "title": "AI-Powered Repair",
+                "description": "Advanced Gemini AI reconstructs blurry Chinese characters into crystal-clear text"
+            },
+            "quality": {
+                "title": "4K Ultra HD",
+                "description": "Output in stunning 4K resolution for maximum clarity and print quality"
+            },
+            "formats": {
+                "title": "Multiple Formats",
+                "description": "Export as PDF, PowerPoint, or ZIP with individual images"
+            },
+            "fast": {
+                "title": "Fast Processing",
+                "description": "Process entire documents in minutes, not hours"
+            }
+        }
+    },
+    "pricing": {
+        "title": "Simple, Transparent Pricing",
+        "subtitle": "Pay only for what you use. No subscriptions required.",
+        "free": {
+            "title": "Free Trial",
+            "description": "1 page free",
+            "cta": "Start Free"
+        },
+        "payg": {
+            "title": "Pay as you go",
+            "price": "$0.50",
+            "unit": "per page",
+            "features": [
+                "4K HD quality output",
+                "PDF/PPT/ZIP export",
+                "No expiration",
+                "Priority processing"
+            ],
+            "cta": "Get Started"
+        },
+        "bulk": {
+            "title": "Bulk Packages",
+            "packages": {
+                "starter": {
+                    "pages": "10 pages",
+                    "price": "$4.50",
+                    "discount": "10% off"
+                },
+                "pro": {
+                    "pages": "50 pages",
+                    "price": "$20",
+                    "discount": "20% off",
+                    "popular": true
+                },
+                "enterprise": {
+                    "pages": "200 pages",
+                    "price": "$70",
+                    "discount": "30% off"
+                }
+            }
+        }
+    },
+    "footer": {
+        "tagline": "AI-powered PDF Chinese font repair",
+        "legal": "Legal",
+        "support": "Support",
+        "copyright": "© 2026 worktool.dev. All rights reserved."
+    },
+    "terms": {
+        "title": "Terms of Service",
+        "lastUpdated": "Last updated: January 2026"
+    },
+    "privacy": {
+        "title": "Privacy Policy",
+        "lastUpdated": "Last updated: January 2026"
+    },
+    "refund": {
+        "title": "Refund Policy",
+        "lastUpdated": "Last updated: January 2026",
+        "content": {
+            "intro": "We want you to be satisfied with your purchase. Please read our refund policy carefully.",
+            "used": {
+                "title": "Used Credits",
+                "description": "Credits that have been used to process pages are non-refundable as the AI processing costs have already been incurred."
+            },
+            "unused": {
+                "title": "Unused Balance",
+                "description": "Unused credit balance can be refunded within 7 days of purchase. A processing fee (payment gateway fees) will be deducted from the refund amount."
+            },
+            "howTo": {
+                "title": "How to Request a Refund",
+                "description": "To request a refund, please contact us at support@worktool.dev with your purchase details."
+            }
+        }
+    },
+    "contact": {
+        "title": "Contact Support",
+        "subtitle": "We're here to help",
+        "email": "support@worktool.dev",
+        "description": "For any questions or support requests, please email us and we'll get back to you within 24 hours."
+    }
+}

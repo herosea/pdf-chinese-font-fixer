@@ -1,5 +1,0 @@
-{
-  "name": "PDF Chinese Character Fixer",
-  "description": "Repair deformed, blurry, or aliased Chinese characters in PDFs using Generative AI. Extracts pages, enhances them to 4K using Gemini 3 Pro, and reconstructs the PDF.",
-  "requestFramePermissions": []
-}

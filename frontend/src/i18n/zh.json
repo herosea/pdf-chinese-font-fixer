@@ -1,0 +1,134 @@
+{
+    "common": {
+        "login": "登录",
+        "logout": "退出",
+        "getStarted": "立即开始",
+        "tryFree": "免费试用",
+        "learnMore": "了解更多"
+    },
+    "nav": {
+        "home": "首页",
+        "pricing": "价格",
+        "app": "打开应用",
+        "terms": "服务条款",
+        "privacy": "隐私政策",
+        "refund": "退款政策",
+        "contact": "联系我们"
+    },
+    "hero": {
+        "badge": "AI 驱动",
+        "title": "智能修复中文 PDF 字体",
+        "titleHighlight": "AI 修复",
+        "subtitle": "使用先进的 Gemini AI 技术，即时修复和优化 NotebookLM PDF 中的中文字符。输出 4K 超清画质。",
+        "cta": "免费试用 1 页",
+        "ctaSecondary": "查看价格",
+        "stats": {
+            "pages": "已修复页面",
+            "users": "满意用户",
+            "quality": "4K 画质"
+        }
+    },
+    "features": {
+        "title": "为什么选择我们",
+        "subtitle": "由 Google Gemini AI 驱动的专业 PDF 修复",
+        "items": {
+            "ai": {
+                "title": "AI 智能修复",
+                "description": "先进的 Gemini AI 将模糊的中文字符重构为清晰锐利的文字"
+            },
+            "quality": {
+                "title": "4K 超清",
+                "description": "输出惊艳的 4K 分辨率，实现最大清晰度和打印质量"
+            },
+            "formats": {
+                "title": "多种格式",
+                "description": "导出为 PDF、PowerPoint 或包含单独图片的 ZIP"
+            },
+            "fast": {
+                "title": "快速处理",
+                "description": "几分钟内处理整个文档，而不是几小时"
+            }
+        }
+    },
+    "pricing": {
+        "title": "简单透明的定价",
+        "subtitle": "按量付费，无需订阅。",
+        "free": {
+            "title": "免费试用",
+            "description": "1 页免费",
+            "cta": "开始试用"
+        },
+        "payg": {
+            "title": "按量付费",
+            "price": "$0.50",
+            "unit": "每页",
+            "features": [
+                "4K 高清输出",
+                "PDF/PPT/ZIP 导出",
+                "永不过期",
+                "优先处理"
+            ],
+            "cta": "立即开始"
+        },
+        "bulk": {
+            "title": "批量套餐",
+            "packages": {
+                "starter": {
+                    "pages": "10 页",
+                    "price": "$4.50",
+                    "discount": "省 10%"
+                },
+                "pro": {
+                    "pages": "50 页",
+                    "price": "$20",
+                    "discount": "省 20%",
+                    "popular": true
+                },
+                "enterprise": {
+                    "pages": "200 页",
+                    "price": "$70",
+                    "discount": "省 30%"
+                }
+            }
+        }
+    },
+    "footer": {
+        "tagline": "AI 驱动的 PDF 中文字体修复",
+        "legal": "法律条款",
+        "support": "支持",
+        "copyright": "© 2026 worktool.dev. 保留所有权利。"
+    },
+    "terms": {
+        "title": "服务条款",
+        "lastUpdated": "最后更新：2026年1月"
+    },
+    "privacy": {
+        "title": "隐私政策",
+        "lastUpdated": "最后更新：2026年1月"
+    },
+    "refund": {
+        "title": "退款政策",
+        "lastUpdated": "最后更新：2026年1月",
+        "content": {
+            "intro": "我们希望您对购买满意。请仔细阅读我们的退款政策。",
+            "used": {
+                "title": "已使用积分",
+                "description": "用于处理页面的积分不可退款，因为 AI 处理成本已经产生。"
+            },
+            "unused": {
+                "title": "未使用余额",
+                "description": "未使用的积分余额可在购买后 7 天内退款。将从退款金额中扣除手续费（支付网关费用）。"
+            },
+            "howTo": {
+                "title": "如何申请退款",
+                "description": "如需申请退款，请发送邮件至 support@worktool.dev，附上您的购买详情。"
+            }
+        }
+    },
+    "contact": {
+        "title": "联系支持",
+        "subtitle": "我们随时为您服务",
+        "email": "support@worktool.dev",
+        "description": "如有任何问题或支持请求，请发送邮件给我们，我们将在 24 小时内回复。"
+    }
+}
