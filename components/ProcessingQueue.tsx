@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { PdfPage } from '../types';
+import { PdfPage, CompressionLevel } from '../types';
 import { 
   CheckCircle, Loader2, XCircle, Clock, Search, ArrowRight, RefreshCw, 
   MessageSquare, Play, ChevronDown, ChevronUp, ZoomIn, Download, 
   Upload as UploadIcon, ArrowLeftCircle, Wand2, Type, Maximize2, Sparkles, Trash2, Plus,
-  Image as ImageIcon, Fullscreen, Eraser
+  Image as ImageIcon, Fullscreen, Eraser, FileOutput
 } from 'lucide-react';
 import ImagePreviewModal from './ImagePreviewModal';
 import { extractTextFromPage, cleanHiddenChars } from '../services/geminiService';
@@ -16,12 +16,13 @@ interface ProcessingQueueProps {
   onUpdatePagePrompt: (pageNumber: number, prompt: string) => void;
   onDeletePage: (id: string) => void;
   onInsertPage: (index: number) => void;
+  compressionLevel: CompressionLevel;
 }
 
-type PreviewType = 'original' | 'fixed' | 'compressed';
+type PreviewType = 'original' | 'fixed';
 
 const ProcessingQueue: React.FC<ProcessingQueueProps> = ({ 
-  pages, onRetry, onUpdatePagePrompt, onDeletePage, onInsertPage 
+  pages, onRetry, onUpdatePagePrompt, onDeletePage, onInsertPage, compressionLevel
 }) => {
   const [preview, setPreview] = useState<{ url: string; title: string } | null>(null);
   const [expandedPromptIds, setExpandedPromptIds] = useState<Set<string>>(new Set());
@@ -39,7 +40,6 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
     try {
       const rawText = await extractTextFromPage(page.originalImage);
       if (rawText) {
-        // Text is already cleaned by the service
         onUpdatePagePrompt(page.pageNumber, rawText);
       }
     } catch (err) { alert("文字提取失败，请重试。"); }
@@ -47,14 +47,11 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
   };
 
   const handleTextChange = (pageNumber: number, newText: string) => {
-    // Clean user input on the fly to prevent invisible chars from sticking
-    // We do NOT trim here to allow user to type spaces
     const cleaned = cleanHiddenChars(newText);
     onUpdatePagePrompt(pageNumber, cleaned);
   };
 
   const getPreviewUrl = (page: PdfPage, mode: PreviewType) => {
-    if (mode === 'compressed' && page.compressedImage) return page.compressedImage;
     if (mode === 'fixed' && page.processedImage) return page.processedImage;
     return page.originalImage;
   };
@@ -63,7 +60,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
     switch(mode) {
       case 'original': return '原始图像';
       case 'fixed': return 'AI 修复后 (4K)';
-      case 'compressed': return '智能压缩后';
+      default: return '预览';
     }
   };
 
@@ -91,7 +88,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
             const extracting = isExtracting[page.id];
             const hasOcr = (page.customPrompt && page.customPrompt.length > 1);
             
-            const currentMode = previewModes[page.id] || (page.compressedImage ? 'compressed' : (page.processedImage ? 'fixed' : 'original'));
+            const currentMode = previewModes[page.id] || (page.processedImage ? 'fixed' : 'original');
             const previewUrl = getPreviewUrl(page, currentMode);
 
             return (
@@ -120,7 +117,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                       <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
                         {page.status === 'completed' ? '重构已就绪' : 
                          page.status === 'processing' ? '正在执行 4K 增强' : 
-                         hasOcr ? '语义提取成功' : '等待 AI 指令'}
+                         hasOcr ? '语义提取成功' : '等待手动提取文字'}
                       </p>
                     </div>
                   </div>
@@ -145,19 +142,20 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                             <ImageIcon className="w-4 h-4" /> 巨幕对照视图
                           </h5>
                           <div className="flex bg-gray-100 p-1 rounded-2xl border border-gray-200 shadow-inner">
-                            {(['original', 'fixed', 'compressed'] as PreviewType[]).map((mode) => {
-                              const isAvailable = (mode === 'original') || (mode === 'fixed' && page.processedImage) || (mode === 'compressed' && page.compressedImage);
-                              return (
-                                <button
-                                  key={mode}
-                                  disabled={!isAvailable}
-                                  onClick={() => setPreviewModes(prev => ({...prev, [page.id]: mode}))}
-                                  className={`px-6 py-2 text-xs font-bold rounded-xl transition-all ${currentMode === mode ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600 disabled:opacity-20'}`}
-                                >
-                                  {mode === 'original' ? '原件' : mode === 'fixed' ? '4K 修复' : '压缩'}
-                                </button>
-                              );
-                            })}
+                            <button
+                              disabled={!page.originalImage}
+                              onClick={() => setPreviewModes(prev => ({...prev, [page.id]: 'original'}))}
+                              className={`px-6 py-2 text-xs font-bold rounded-xl transition-all ${currentMode === 'original' ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600 disabled:opacity-20'}`}
+                            >
+                              原件
+                            </button>
+                            <button
+                              disabled={!page.processedImage}
+                              onClick={() => setPreviewModes(prev => ({...prev, [page.id]: 'fixed'}))}
+                              className={`px-6 py-2 text-xs font-bold rounded-xl transition-all ${currentMode === 'fixed' ? 'bg-white shadow-md text-blue-600' : 'text-gray-400 hover:text-gray-600 disabled:opacity-20'}`}
+                            >
+                              4K 修复
+                            </button>
                           </div>
                         </div>
                         
@@ -177,20 +175,16 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                              </div>
                           </div>
                           
-                          {!page.processedImage && !hasOcr && !extracting && (
-                            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center p-12 text-center animate-in fade-in">
+                          {/* Loading states overlay */}
+                          {(extracting || page.status === 'processing') && (
+                            <div className="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center p-12 text-center animate-in fade-in z-20">
                               <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4 drop-shadow-md" />
-                              <h6 className="text-xl font-black text-gray-900 drop-shadow-md">文字识别中...</h6>
-                              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-2 drop-shadow-sm">Gemini 正在提取语义</p>
-                            </div>
-                          )}
-
-                          {page.status === 'processing' && (
-                            <div className="absolute inset-0 bg-blue-600/5 backdrop-blur-sm flex items-center justify-center">
-                              <div className="bg-white px-8 py-5 rounded-3xl shadow-2xl border border-blue-100 flex flex-col items-center gap-4">
-                                <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
-                                <span className="text-sm font-black text-blue-600 uppercase tracking-widest animate-pulse">4K 边缘重构中...</span>
-                              </div>
+                              <h6 className="text-xl font-black text-gray-900 drop-shadow-md">
+                                {page.status === 'processing' ? '4K 边缘重构中...' : '文字识别中...'}
+                              </h6>
+                              <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mt-2 drop-shadow-sm">
+                                {page.status === 'processing' ? 'AI 正在绘制每一个像素' : 'Gemini 正在提取语义'}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -202,8 +196,9 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                           <h5 className="text-[11px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
                             <Type className="w-4 h-4" /> 修复指令（含修改文字）
                           </h5>
-                          <button onClick={() => handleExtractText(page)} disabled={extracting || isProcessing} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="重新提取文字">
-                            <RefreshCw className={`w-4 h-4 ${extracting ? 'animate-spin' : ''}`} />
+                          <button onClick={() => handleExtractText(page)} disabled={extracting || isProcessing} className="flex items-center gap-2 px-3 py-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all text-xs font-bold" title="提取画面中的文字">
+                            <RefreshCw className={`w-3.5 h-3.5 ${extracting ? 'animate-spin' : ''}`} />
+                            提取/刷新文字
                           </button>
                         </div>
                         
@@ -211,7 +206,7 @@ const ProcessingQueue: React.FC<ProcessingQueueProps> = ({
                           <textarea
                             value={page.customPrompt || ''}
                             onChange={(e) => handleTextChange(page.pageNumber, e.target.value)}
-                            placeholder="AI 提取的文字将在此显示，您可以修改它来纠正模糊或错误的汉字，重构时将以此内容为准..."
+                            placeholder="点击上方“提取文字”按钮获取图像内容，或在此手动输入正确的文字。AI 将严格按照此处的文本进行重构。"
                             className="flex-1 w-full p-5 text-sm leading-relaxed border border-gray-200 rounded-[24px] bg-gray-50/30 shadow-inner resize-none focus:ring-4 focus:ring-blue-100/50 focus:border-blue-500 focus:bg-white transition-all font-sans"
                           />
                           

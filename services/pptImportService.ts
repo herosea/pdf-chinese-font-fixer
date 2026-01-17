@@ -23,6 +23,20 @@ const getFileIndex = (filename: string): number => {
   return match ? parseInt(match[1], 10) : 9999;
 };
 
+const getMimeType = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  switch (ext) {
+    case 'png': return 'image/png';
+    case 'jpeg':
+    case 'jpg': return 'image/jpeg';
+    case 'gif': return 'image/gif';
+    case 'webp': return 'image/webp';
+    case 'bmp': return 'image/bmp';
+    case 'svg': return 'image/svg+xml';
+    default: return 'image/jpeg'; // Fallback
+  }
+};
+
 export const extractImagesFromPpt = async (file: File): Promise<PdfPage[]> => {
   try {
     const zip = new JSZip();
@@ -44,8 +58,14 @@ export const extractImagesFromPpt = async (file: File): Promise<PdfPage[]> => {
       // 过滤常见图片格式
       if (relativePath.match(/\.(jpeg|jpg|png|gif|bmp|webp)$/i)) {
         const promise = async () => {
-          const blob = await zipEntry.async("blob");
+          // Use arraybuffer to create a Blob with explicit MIME type.
+          // This ensures readAsDataURL produces a valid Data URL (e.g. data:image/png;base64...)
+          // instead of data:application/octet-stream or similar which might confuse PPT generators.
+          const buffer = await zipEntry.async("arraybuffer");
+          const mimeType = getMimeType(relativePath);
+          const blob = new Blob([buffer], { type: mimeType });
           const base64 = await blobToBase64(blob);
+          
           imageFiles.push({
             name: relativePath,
             data: base64

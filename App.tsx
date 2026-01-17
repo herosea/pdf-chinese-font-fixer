@@ -4,8 +4,7 @@ import { Upload, FileUp, Sparkles, Download, AlertCircle, FileText, Image as Ima
 import { PdfPage, ImageQuality, SessionMetadata, CompressionLevel } from './types';
 import { extractImagesFromPdf, generatePdfFromImages, fileToBase64, getImageDimensions } from './services/pdfService';
 import { generatePptFromImages } from './services/pptService';
-import { extractImagesFromPpt } from './services/pptImportService';
-import { enhancePageImage, extractTextFromPage } from './services/geminiService';
+import { enhancePageImage } from './services/geminiService';
 import { downloadAllAsZip } from './services/zipService';
 import { compressImage, getCompressionRatio } from './services/imageService';
 import { saveSession, getSession, getAllSessionsMetadata, deleteSession, updateSessionName } from './services/storageService';
@@ -21,7 +20,7 @@ const App: React.FC = () => {
 
   const [pages, setPages] = useState<PdfPage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [quality, setQuality] = useState<ImageQuality>('4K');
+  const [quality, setQuality] = useState<ImageQuality>('4K'); // Forced to 4K
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [isApiKeyReady, setIsApiKeyReady] = useState(false);
@@ -30,44 +29,15 @@ const App: React.FC = () => {
   const [fileName, setFileName] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
 
-  // New states for format handling
   const [exportFormat, setExportFormat] = useState<'pdf' | 'ppt' | 'zip'>('ppt');
   
   const abortControllerRef = useRef<AbortController | null>(null);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const processingOcrIds = useRef<Set<string>>(new Set());
-  const MAX_CONCURRENT_OCR = 3; 
-
-  useEffect(() => { loadSessionList(); }, []);
-
-  useEffect(() => {
-    if (!isApiKeyReady || isProcessing) return;
-    const activeCount = processingOcrIds.current.size;
-    const availableSlots = MAX_CONCURRENT_OCR - activeCount;
-    if (availableSlots <= 0) return;
-
-    const candidates = pages.filter(p => 
-      p.status === 'pending' && 
-      (!p.customPrompt || p.customPrompt.length < 2) && 
-      !processingOcrIds.current.has(p.id)
-    ).slice(0, availableSlots);
-
-    if (candidates.length === 0) return;
-
-    candidates.forEach(page => {
-      processingOcrIds.current.add(page.id);
-      extractTextFromPage(page.originalImage)
-        .then(text => {
-          if (text) {
-            setPages(prev => prev.map(p => p.id === page.id ? { ...p, customPrompt: text } : p));
-          }
-        })
-        .catch(e => { console.warn(`自动 OCR 失败，页面 ${page.pageNumber}`, e); })
-        .finally(() => { processingOcrIds.current.delete(page.id); });
-    });
-  }, [pages, isApiKeyReady, isProcessing]);
+  useEffect(() => { 
+    loadSessionList();
+  }, []);
 
   useEffect(() => {
     if (!currentSessionId || pages.length === 0) return;
@@ -100,7 +70,7 @@ const App: React.FC = () => {
       const s = await getSession(id);
       if (s) {
         setCurrentSessionId(s.id); setPages(s.pages); setFileName(s.fileName);
-        setSessionName(s.name); setCustomPrompt(s.customPrompt); setQuality(s.quality);
+        setSessionName(s.name); setCustomPrompt(s.customPrompt); setQuality('4K');
         setCompressionLevel(s.compressionLevel || 'balanced'); setError(null);
       }
     } catch (e) { setError("加载会话失败"); }
@@ -116,14 +86,6 @@ const App: React.FC = () => {
       if (file.type === 'application/pdf') {
         const newPages = await extractImagesFromPdf(file);
         setPages(newPages);
-      } else if (file.name.toLowerCase().endsWith('.pptx') || file.type.includes('presentation')) {
-        const newPages = await extractImagesFromPpt(file);
-        if (newPages.length === 0) {
-          setError('未在 PPT 中发现嵌入的图片。如果是纯文本 PPT，请先导出为 PDF 再上传。');
-          setPages([]);
-        } else {
-          setPages(newPages);
-        }
       } else if (file.type.startsWith('image/')) {
         const base64 = await fileToBase64(file);
         const { width, height } = await getImageDimensions(base64);
@@ -132,10 +94,8 @@ const App: React.FC = () => {
           compressedImage: null, status: 'pending', width, height, aspectRatio: width/height, customPrompt: ''
         };
         setPages([newPage]);
-      } else if (file.name.toLowerCase().endsWith('.ppt')) {
-        setError('暂不支持旧版 .ppt 格式，请另存为 .pptx 或 PDF 后重试。');
       } else { 
-        setError('不支持的文件格式。请上传 PDF, PPTX 或图片。'); 
+        setError('不支持的文件格式。请上传 PDF 或图片。'); 
       }
     } catch (err: any) { 
       setError(err.message || '读取文件失败。'); 
@@ -179,7 +139,14 @@ const App: React.FC = () => {
       const outputName = sessionName || getBaseName(fileName);
       // Add suffix based on what we are exporting
       const hasRepaired = pages.some(p => p.status === 'completed');
-      const suffix = hasRepaired ? '_修复版' : '_压缩版';
+      
+      let suffix = '';
+      if (hasRepaired) {
+        suffix = '_修复版';
+      } else if (compressionLevel !== 'none') {
+        suffix = '_压缩版';
+      }
+      
       const finalFileName = `${outputName}${suffix}`;
       
       if (exportFormat === 'ppt') {
@@ -229,17 +196,21 @@ const App: React.FC = () => {
 
   const processPages = async () => {
     if (pages.length === 0 || (!isApiKeyReady && !keyError)) return;
+
     setIsProcessing(true); setError(null);
     const controller = new AbortController(); abortControllerRef.current = controller;
+    
     for (let i = 0; i < pages.length; i++) {
       if (controller.signal.aborted) break;
       const page = pages[i];
       if (page.status === 'completed') continue;
+
       setPages(prev => prev.map(p => p.id === page.id ? { ...p, status: 'processing' } : p));
       try {
         const combinedPrompt = [customPrompt.trim(), page.customPrompt?.trim()].filter(Boolean).join('\n\n[特定内容]:\n');
         const enhanced = await enhancePageImage(page.originalImage, quality, page.aspectRatio, controller.signal, combinedPrompt);
-        // During processing, we don't compress immediately to save time, compression happens at export
+        
+        // Success!
         setPages(prev => prev.map(p => p.id === page.id ? { ...p, processedImage: enhanced, status: 'completed' } : p));
       } catch (err: any) {
         if (controller.signal.aborted) break;
@@ -252,6 +223,7 @@ const App: React.FC = () => {
 
   const handleProcessSinglePage = async (id: string) => {
     if (isProcessing) return;
+    
     const page = pages.find(p => p.id === id);
     if (!page) return;
     setIsProcessing(true);
@@ -296,12 +268,15 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
-          {fileName && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-full border border-blue-100/50 max-w-xs overflow-hidden">
-              <FileText className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-              <span className="text-[10px] font-black text-blue-600 truncate uppercase tracking-tighter">{fileName}</span>
-            </div>
-          )}
+          
+          <div className="flex items-center gap-3">
+            {fileName && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-full border border-blue-100/50 max-w-xs overflow-hidden">
+                <FileText className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <span className="text-[10px] font-black text-blue-600 truncate uppercase tracking-tighter">{fileName}</span>
+              </div>
+            )}
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -327,33 +302,36 @@ const App: React.FC = () => {
                     <input 
                       ref={fileInputRef}
                       type="file" 
-                      accept="application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/*" 
+                      accept="application/pdf,image/*" 
                       onChange={handleFileChange} 
                       className="hidden" 
                       disabled={isProcessing} 
                     />
                     <div className="flex flex-col items-center">
                       <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 group-hover:shadow-md transition-all border border-gray-50">
-                        {fileName ? <FileText className="w-5 h-5 text-green-600" /> : <Presentation className="w-5 h-5 text-blue-600" />}
+                        {fileName ? <FileText className="w-5 h-5 text-green-600" /> : <FileUp className="w-5 h-5 text-blue-600" />}
                       </div>
                       <div className="text-sm font-bold text-gray-700 mt-1">
-                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF/PPT</span>}
+                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF / 图片</span>}
                       </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="text-xs font-bold mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wider"><Layers className="w-4 h-4" /> 核心设置</h2>
+                  <div className="flex items-center justify-between mb-3">
+                     <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><Layers className="w-4 h-4" /> 核心设置</h2>
+                  </div>
                   <div className="space-y-4">
-                    <div>
-                      <label className="text-xs font-bold text-gray-500 mb-2 block">目标画质</label>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {['1K', '2K', '4K'].map(q => (
-                          <button key={q} onClick={() => setQuality(q as any)} className={`py-2 text-xs font-bold rounded-lg border transition-all ${quality === q ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'}`}>{q}</button>
-                        ))}
-                      </div>
+                    {/* Quality is now implicit 4K */}
+                    <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
+                       <Zap className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                       <div>
+                         <p className="text-xs font-bold text-blue-800">已启用 4K 超清重构</p>
+                         <p className="text-[10px] text-blue-600/80 mt-0.5">所有页面将自动优化至最高画质</p>
+                       </div>
                     </div>
+
                     <div>
                       <label className="text-xs font-bold text-gray-500 mb-2 block">导出质量</label>
                       <select value={compressionLevel} onChange={(e) => setCompressionLevel(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-100 outline-none hover:border-gray-300 transition-colors">
@@ -377,9 +355,11 @@ const App: React.FC = () => {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sticky top-4">
                   {!isProcessing ? (
                     <div className="space-y-3">
-                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95">
-                        <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" /> 
-                        开始重构
+                      <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95 relative overflow-hidden">
+                        <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform relative z-10" /> 
+                        <span className="relative z-10">开始重构</span>
+                        {/* Shimmer effect */}
+                        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                       </button>
                       
                       <button 
@@ -392,7 +372,7 @@ const App: React.FC = () => {
                           exportFormat === 'pdf' ? <FileText className="w-4 h-4 mr-2" /> :
                           <Archive className="w-4 h-4 mr-2" />
                         )}
-                        {pages.some(p => p.status === 'completed') ? '导出修复结果' : '导出文件 (仅压缩)'}
+                        {pages.some(p => p.status === 'completed') ? '导出修复结果' : (compressionLevel === 'none' ? '原样导出' : '导出文件 (仅压缩)')}
                       </button>
                     </div>
                   ) : (
@@ -411,6 +391,7 @@ const App: React.FC = () => {
                   onUpdatePagePrompt={(pn, prompt) => setPages(prev => prev.map(p => p.pageNumber === pn ? { ...p, customPrompt: prompt } : p))}
                   onDeletePage={handleDeletePage}
                   onInsertPage={handleInsertPage}
+                  compressionLevel={compressionLevel}
                 />
               </div>
             </div>
