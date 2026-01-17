@@ -4,7 +4,7 @@ from typing import Optional
 import base64
 
 from app.models.schemas import FileUploadResponse, ProcessRequest, ProcessStatusResponse
-from app.services.gemini_service import enhance_page_image
+from app.services.gemini_service import enhance_page_image, extract_text_from_image
 from app.utils.security import get_current_user
 from app.config import get_settings
 
@@ -169,3 +169,45 @@ async def download_file(
         "page": page,
         "image": file_info["processed_pages"][page]
     }
+
+
+@router.post("/ocr")
+async def ocr_file(
+    request: ProcessRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Extract text from uploaded file pages using AI OCR.
+    """
+    if request.file_id not in files_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="File not found"
+        )
+    
+    file_info = files_db[request.file_id]
+    
+    # Verify ownership
+    if file_info["user_id"] != current_user.get("sub"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this file"
+        )
+    
+    # Process image (simplified - assumes single page/image for now)
+    content = file_info["content"]
+    base64_image = base64.b64encode(content).decode()
+    
+    try:
+        text = await extract_text_from_image(base64_image)
+        
+        return {
+            "status": "completed",
+            "text": text
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"OCR failed: {str(e)}"
+        )

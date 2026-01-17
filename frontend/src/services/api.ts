@@ -82,6 +82,14 @@ export const filesApi = {
         });
         return response.data;
     },
+
+    extractText: async (fileId: string, pages: number[]) => {
+        const response = await api.post('/files/ocr', {
+            file_id: fileId,
+            pages,
+        });
+        return response.data;
+    },
 };
 
 export default api;

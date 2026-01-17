@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Upload, FileUp, Sparkles, AlertCircle, FileText, StopCircle, Presentation, Layers, PanelLeftClose, PanelLeftOpen, Archive, Zap, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Upload, FileUp, Sparkles, AlertCircle, FileText, StopCircle, Presentation, Layers, PanelLeftClose, PanelLeftOpen, Archive, Zap, Loader2, Home } from 'lucide-react';
 import { PdfPage, ImageQuality, SessionMetadata, CompressionLevel } from '@/types';
 import { extractImagesFromPdf, generatePdfFromImages, fileToBase64, getImageDimensions } from '@/services/pdfService';
 import { generatePptFromImages } from '@/services/pptService';
@@ -9,7 +10,6 @@ import { downloadAllAsZip } from '@/services/zipService';
 import { compressImage, getCompressionRatio } from '@/services/imageService';
 import { saveSession, getSession, getAllSessionsMetadata, deleteSession, updateSessionName } from '@/services/storageService';
 import ProcessingQueue from './ProcessingQueue';
-import ApiKeySelector from './ApiKeySelector';
 import SessionSidebar from './SessionSidebar';
 
 const App: React.FC = () => {
@@ -23,8 +23,6 @@ const App: React.FC = () => {
   const [quality, setQuality] = useState<ImageQuality>('4K'); // Forced to 4K
   const [compressionLevel, setCompressionLevel] = useState<CompressionLevel>('balanced');
   const [customPrompt, setCustomPrompt] = useState<string>('');
-  const [isApiKeyReady, setIsApiKeyReady] = useState(false);
-  const [keyError, setKeyError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
@@ -195,7 +193,7 @@ const App: React.FC = () => {
   };
 
   const processPages = async () => {
-    if (pages.length === 0 || (!isApiKeyReady && !keyError)) return;
+    if (pages.length === 0) return;
 
     setIsProcessing(true); setError(null);
     const controller = new AbortController(); abortControllerRef.current = controller;
@@ -208,14 +206,14 @@ const App: React.FC = () => {
       setPages(prev => prev.map(p => p.id === page.id ? { ...p, status: 'processing' } : p));
       try {
         const combinedPrompt = [customPrompt.trim(), page.customPrompt?.trim()].filter(Boolean).join('\n\n[特定内容]:\n');
-        const enhanced = await enhancePageImage(page.originalImage, quality, page.aspectRatio, controller.signal, combinedPrompt);
+        const enhanced = await enhancePageImage(page.originalImage, quality, controller.signal, combinedPrompt);
 
         // Success!
         setPages(prev => prev.map(p => p.id === page.id ? { ...p, processedImage: enhanced, status: 'completed' } : p));
       } catch (err: any) {
         if (controller.signal.aborted) break;
         setPages(prev => prev.map(p => p.id === page.id ? { ...p, status: 'error' } : p));
-        if (err.isAuthError || err.isNotFound) { setError(err.message); setIsProcessing(false); return; }
+        if (err.isNotFound) { setError(err.message); setIsProcessing(false); return; }
       }
     }
     setIsProcessing(false);
@@ -231,7 +229,7 @@ const App: React.FC = () => {
     setPages(prev => prev.map(p => p.id === id ? { ...p, status: 'processing' } : p));
     try {
       const combinedPrompt = [customPrompt.trim(), page.customPrompt?.trim()].filter(Boolean).join('\n\n[特定内容]:\n');
-      const enhanced = await enhancePageImage(page.originalImage, quality, page.aspectRatio, controller.signal, combinedPrompt);
+      const enhanced = await enhancePageImage(page.originalImage, quality, controller.signal, combinedPrompt);
       setPages(prev => prev.map(p => p.id === id ? { ...p, processedImage: enhanced, status: 'completed' } : p));
     } catch (e) {
       setPages(prev => prev.map(p => p.id === id ? { ...p, status: 'error' } : p));
@@ -247,6 +245,14 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <header className="bg-white border-b border-gray-100 flex-shrink-0 z-10 px-4 lg:px-6 h-16 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-4">
+            <Link
+              to="/"
+              className="hidden lg:flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-colors border border-transparent hover:border-blue-100"
+              title="返回首页"
+            >
+              <Home className="w-5 h-5" />
+            </Link>
+            <div className="w-px h-6 bg-gray-200 hidden lg:block"></div>
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all border group active:scale-95 shadow-sm
@@ -258,13 +264,13 @@ const App: React.FC = () => {
               {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
               <span className="text-xs font-bold hidden md:inline">{isSidebarOpen ? '收起历史' : '历史记录'}</span>
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 ml-2">
               <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-100">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-base font-black text-gray-900 leading-none">Notebookllm pdf 修复大师</h1>
-                <p className="text-[10px] font-bold text-gray-400 mt-1 uppercase tracking-widest">智能中文字体高清重构</p>
+                <h1 className="text-base font-black text-gray-900 leading-none tracking-tight">PDF Font Fixer <span className="text-blue-600">Pro</span></h1>
+                <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">智能中文字体高清重构</p>
               </div>
             </div>
           </div>
@@ -281,8 +287,6 @@ const App: React.FC = () => {
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <div className="max-w-[1800px] mx-auto">
-            <ApiKeySelector onReady={() => { setIsApiKeyReady(true); setKeyError(false); }} forceShow={keyError} />
-
             {error && (
               <div className="mb-6 bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3 text-red-600 shadow-sm animate-in slide-in-from-top-2">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
