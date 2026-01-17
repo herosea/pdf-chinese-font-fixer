@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { SessionMetadata } from '@/types';
 import { PlusCircle, Clock, Trash2, FileText, Edit2 } from 'lucide-react';
 
@@ -24,6 +25,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   isOpen,
   onToggle
 }) => {
+  const { t, i18n } = useTranslation();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,7 +37,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
   }, [editingId]);
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString('zh-CN', {
+    return new Date(timestamp).toLocaleString(i18n.language === 'en' ? 'en-US' : 'zh-CN', {
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
@@ -94,13 +96,13 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
           <div className="p-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
             <h2 className="font-bold text-gray-800 flex items-center gap-2 truncate">
               <Clock className="w-5 h-5 text-blue-600" />
-              历史记录
+              {t('sidebar.history')}
             </h2>
             <div className="flex items-center gap-1">
               <button
                 onClick={onNewSession}
                 className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="新建会话"
+                title={t('sidebar.newSession')}
               >
                 <PlusCircle className="w-5 h-5" />
               </button>
@@ -112,7 +114,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
             {sessions.length === 0 ? (
               <div className="text-center py-12 text-gray-400 text-sm">
                 <FileText className="w-10 h-10 mx-auto mb-2 opacity-20" />
-                <p>暂无记录</p>
+                <p>{t('sidebar.emptyDesc', 'No sessions yet')}</p>
               </div>
             ) : (
               sessions.map((session) => (
@@ -141,7 +143,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
                     <>
                       <div className="flex-1 min-w-0 pr-2">
                         <h3 className={`text-sm font-bold truncate ${currentSessionId === session.id ? 'text-blue-700' : 'text-gray-700'}`}>
-                          {session.name || '未命名会话'}
+                          {session.name || t('app.untitledSession', 'Untitled Session')}
                         </h3>
                         <p className="text-[10px] text-gray-400 mt-0.5 font-medium">
                           {formatDate(session.createdAt)}
@@ -158,7 +160,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm('确定要删除这个会话吗？')) {
+                            if (confirm(t('sidebar.deleteConfirm', 'Are you sure you want to delete this session?'))) {
                               onDeleteSession(session.id);
                             }
                           }}
@@ -175,7 +177,7 @@ const SessionSidebar: React.FC<SessionSidebarProps> = ({
           </div>
 
           <div className="p-4 border-t border-gray-50 text-[10px] text-center font-bold text-gray-300 uppercase tracking-widest">
-            {sessions.length} SESSIONS STORED
+            {sessions.length} {t('sidebar.sessionsStored', 'SESSIONS STORED')}
           </div>
         </div>
       </div>

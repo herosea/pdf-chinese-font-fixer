@@ -1,12 +1,34 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Menu, X, Globe, Sparkles } from 'lucide-react';
+import { Menu, X, Globe, Sparkles, User as UserIcon, LogOut } from 'lucide-react';
+import { authApi } from '@/services/api';
+import LoginButton from '@/components/auth/LoginButton';
 
 export default function Header() {
     const { t, i18n } = useTranslation();
     const location = useLocation();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [user, setUser] = useState<any>(null);
+
+    useEffect(() => {
+        checkUser();
+    }, []);
+
+    const checkUser = async () => {
+        try {
+            const currentUser = await authApi.getCurrentUser();
+            setUser(currentUser);
+        } catch (error) {
+            // Not logged in
+        }
+    };
+
+    const handleLogout = () => {
+        authApi.logout();
+        setUser(null);
+        window.location.reload();
+    };
 
     const toggleLanguage = () => {
         i18n.changeLanguage(i18n.language === 'en' ? 'zh' : 'en');
@@ -58,6 +80,33 @@ export default function Header() {
                             <span className="hidden sm:inline">{i18n.language === 'en' ? '中文' : 'EN'}</span>
                         </button>
 
+                        {user ? (
+                            <div className="flex items-center gap-3 pl-2 border-l border-gray-200">
+                                <div className="flex items-center gap-2">
+                                    {user.picture ? (
+                                        <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full border border-gray-200" />
+                                    ) : (
+                                        <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <UserIcon className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                    )}
+                                    <div className="hidden sm:block">
+                                        <div className="text-xs font-bold text-gray-900">{user.name}</div>
+                                        <div className="text-[10px] text-gray-500">{user.credits || 0} pages</div>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={handleLogout}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                    title={t('common.logout')}
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ) : (
+                            <LoginButton onLoginSuccess={setUser} />
+                        )}
+
                         {/* CTA Button */}
                         <Link
                             to="/app"
@@ -80,6 +129,22 @@ export default function Header() {
                 {isMenuOpen && (
                     <div className="md:hidden py-4 border-t border-gray-100 animate-fade-in">
                         <nav className="flex flex-col gap-1">
+                            {user && (
+                                <div className="px-4 py-3 bg-gray-50 rounded-lg mb-2 flex items-center gap-3">
+                                    {user.picture ? (
+                                        <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full" />
+                                    ) : (
+                                        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center border border-gray-200">
+                                            <UserIcon className="w-4 h-4 text-gray-500" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <div className="text-sm font-bold text-gray-900">{user.name}</div>
+                                        <div className="text-xs text-gray-500">{user.credits || 0} pages credit</div>
+                                    </div>
+                                </div>
+                            )}
+
                             <Link
                                 to="/"
                                 onClick={() => setIsMenuOpen(false)}
@@ -103,6 +168,22 @@ export default function Header() {
                             >
                                 {t('nav.app')}
                             </Link>
+
+                            {user ? (
+                                <button
+                                    onClick={() => {
+                                        handleLogout();
+                                        setIsMenuOpen(false);
+                                    }}
+                                    className="mt-2 px-4 py-3 bg-gray-100 text-gray-600 text-sm font-semibold rounded-lg text-center hover:bg-gray-200"
+                                >
+                                    {t('common.logout')}
+                                </button>
+                            ) : (
+                                <div className="px-4 py-2">
+                                    <LoginButton onLoginSuccess={setUser} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold" />
+                                </div>
+                            )}
                         </nav>
                     </div>
                 )}

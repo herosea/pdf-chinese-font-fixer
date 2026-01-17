@@ -1,7 +1,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Upload, FileUp, Sparkles, AlertCircle, FileText, StopCircle, Presentation, Layers, PanelLeftClose, PanelLeftOpen, Archive, Zap, Loader2, Home } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Upload, FileUp, Sparkles, AlertCircle, FileText, StopCircle, Presentation, Layers, PanelLeftClose, PanelLeftOpen, Archive, Zap, Loader2, Home, Globe } from 'lucide-react';
 import { PdfPage, ImageQuality, SessionMetadata, CompressionLevel } from '@/types';
 import { extractImagesFromPdf, generatePdfFromImages, fileToBase64, getImageDimensions } from '@/services/pdfService';
 import { generatePptFromImages } from '@/services/pptService';
@@ -13,6 +14,7 @@ import ProcessingQueue from './ProcessingQueue';
 import SessionSidebar from './SessionSidebar';
 
 const App: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [sessions, setSessions] = useState<SessionMetadata[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState<string>('');
@@ -47,11 +49,11 @@ const App: React.FC = () => {
   const handleSaveSession = useCallback(async () => {
     if (!currentSessionId) return;
     const sessionData = {
-      id: currentSessionId, name: sessionName || fileName || '未命名会话',
+      id: currentSessionId, name: sessionName || fileName || t('app.untitledSession', 'Untitled Session'),
       createdAt: sessions.find(s => s.id === currentSessionId)?.createdAt || Date.now(),
       lastModified: Date.now(), pages, fileName, customPrompt, quality, compressionLevel
     };
-    try { await saveSession(sessionData); loadSessionList(); } catch (e) { console.error("自动保存失败", e); }
+    try { await saveSession(sessionData); loadSessionList(); } catch (e) { console.error(t('app.autoSaveFailed', 'Auto-save failed'), e); }
   }, [currentSessionId, sessionName, fileName, pages, quality, compressionLevel, sessions]);
 
   const handleNewSession = () => {
@@ -63,7 +65,7 @@ const App: React.FC = () => {
   const loadSessionList = async () => { try { setSessions(await getAllSessionsMetadata()); } catch (e) { console.error(e); } };
 
   const handleSelectSession = async (id: string) => {
-    if (isProcessing) { if (!confirm("正在处理中，确定要切换吗？")) return; handleStopProcessing(); }
+    if (isProcessing) { if (!confirm(t('app.confirmSwitch', 'Processing in progress. Are you sure you want to switch?'))) return; handleStopProcessing(); }
     try {
       const s = await getSession(id);
       if (s) {
@@ -71,7 +73,7 @@ const App: React.FC = () => {
         setSessionName(s.name); setCustomPrompt(s.customPrompt); setQuality('4K');
         setCompressionLevel(s.compressionLevel || 'balanced'); setError(null);
       }
-    } catch (e) { setError("加载会话失败"); }
+    } catch (e) { setError(t('app.loadFailed', 'Failed to load session')); }
   };
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,10 +95,10 @@ const App: React.FC = () => {
         };
         setPages([newPage]);
       } else {
-        setError('不支持的文件格式。请上传 PDF 或图片。');
+        setError(t('app.unsupportedFormat', 'Unsupported file format. Please upload PDF or image.'));
       }
     } catch (err: any) {
-      setError(err.message || '读取文件失败。');
+      setError(err.message || t('app.readFailed', 'Failed to read file.'));
     }
 
     if (event.target) event.target.value = '';
@@ -140,9 +142,9 @@ const App: React.FC = () => {
 
       let suffix = '';
       if (hasRepaired) {
-        suffix = '_修复版';
+        suffix = t('app.suffixRepaired', '_fixed');
       } else if (compressionLevel !== 'none') {
-        suffix = '_压缩版';
+        suffix = t('app.suffixCompressed', '_compressed');
       }
 
       const finalFileName = `${outputName}${suffix}`;
@@ -156,7 +158,7 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error(e);
-      alert("导出失败: " + (e as Error).message);
+      alert(t('app.exportFailed', 'Export failed: ') + (e as Error).message);
     } finally {
       setIsExporting(false);
     }
@@ -248,7 +250,7 @@ const App: React.FC = () => {
             <Link
               to="/"
               className="hidden lg:flex items-center justify-center p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 rounded-xl transition-colors border border-transparent hover:border-blue-100"
-              title="返回首页"
+              title={t('nav.home', "Home")}
             >
               <Home className="w-5 h-5" />
             </Link>
@@ -262,7 +264,7 @@ const App: React.FC = () => {
                 }`}
             >
               {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
-              <span className="text-xs font-bold hidden md:inline">{isSidebarOpen ? '收起历史' : '历史记录'}</span>
+              <span className="text-xs font-bold hidden md:inline">{isSidebarOpen ? t('app.hideHistory', 'Hide') : t('app.showHistory', 'History')}</span>
             </button>
             <div className="flex items-center gap-3 ml-2">
               <div className="bg-gradient-to-tr from-blue-600 to-indigo-600 p-2 rounded-xl shadow-lg shadow-blue-100">
@@ -270,12 +272,19 @@ const App: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-base font-black text-gray-900 leading-none tracking-tight">PDF Font Fixer <span className="text-blue-600">Pro</span></h1>
-                <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">智能中文字体高清重构</p>
+                <p className="text-[10px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">{t('app.subtitle', 'AI Powered Font Reconstruction')}</p>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => i18n.changeLanguage(i18n.language === 'en' ? 'zh' : 'en')}
+              className="flex items-center gap-2 p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
+              title={t('nav.switchLanguage', 'Switch Language')}
+            >
+              <Globe className="w-5 h-5" />
+            </button>
             {fileName && (
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50/50 rounded-full border border-blue-100/50 max-w-xs overflow-hidden">
                 <FileText className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
@@ -297,7 +306,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                  <h2 className="text-xs font-bold mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wider"><Upload className="w-4 h-4" /> 载入媒体</h2>
+                  <h2 className="text-xs font-bold mb-3 flex items-center gap-2 text-gray-500 uppercase tracking-wider"><Upload className="w-4 h-4" /> {t('app.loadMedia')}</h2>
                   <div
                     onClick={triggerFileInput}
                     className={`relative border border-dashed border-gray-200 rounded-xl p-4 transition-all text-center group cursor-pointer active:scale-[0.98] 
@@ -316,7 +325,7 @@ const App: React.FC = () => {
                         {fileName ? <FileText className="w-5 h-5 text-green-600" /> : <FileUp className="w-5 h-5 text-blue-600" />}
                       </div>
                       <div className="text-sm font-bold text-gray-700 mt-1">
-                        {fileName ? <span className="text-blue-600">更换文件</span> : <span>载入 PDF / 图片</span>}
+                        {fileName ? <span className="text-blue-600">{t('app.changeFile')}</span> : <span>{t('app.loadFile')}</span>}
                       </div>
                     </div>
                   </div>
@@ -324,33 +333,33 @@ const App: React.FC = () => {
 
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><Layers className="w-4 h-4" /> 核心设置</h2>
+                    <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2"><Layers className="w-4 h-4" /> {t('app.coreSettings')}</h2>
                   </div>
                   <div className="space-y-4">
                     {/* Quality is now implicit 4K */}
                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex items-start gap-2">
                       <Zap className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                       <div>
-                        <p className="text-xs font-bold text-blue-800">已启用 4K 超清重构</p>
-                        <p className="text-[10px] text-blue-600/80 mt-0.5">所有页面将自动优化至最高画质</p>
+                        <p className="text-xs font-bold text-blue-800">{t('app.quality4k')}</p>
+                        <p className="text-[10px] text-blue-600/80 mt-0.5">{t('app.qualityDesc')}</p>
                       </div>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-gray-500 mb-2 block">导出质量</label>
+                      <label className="text-xs font-bold text-gray-500 mb-2 block">{t('app.exportQuality')}</label>
                       <select value={compressionLevel} onChange={(e) => setCompressionLevel(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-100 outline-none hover:border-gray-300 transition-colors">
-                        <option value="none">无损 (原始)</option>
-                        <option value="low">优质 (90%)</option>
-                        <option value="balanced">平衡 (60%)</option>
-                        <option value="high">极限 (30%)</option>
+                        <option value="none">{t('app.qualityNone')}</option>
+                        <option value="low">{t('app.qualityLow')}</option>
+                        <option value="balanced">{t('app.qualityBalanced')}</option>
+                        <option value="high">{t('app.qualityHigh')}</option>
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-gray-500 mb-2 block">导出格式</label>
+                      <label className="text-xs font-bold text-gray-500 mb-2 block">{t('app.exportFormat')}</label>
                       <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as any)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-blue-100 outline-none hover:border-gray-300 transition-colors">
-                        <option value="ppt">PPT演示文稿 (.pptx)</option>
-                        <option value="pdf">PDF文档 (.pdf)</option>
-                        <option value="zip">图片包 (.zip)</option>
+                        <option value="ppt">{t('app.fmtPpt')}</option>
+                        <option value="pdf">{t('app.fmtPdf')}</option>
+                        <option value="zip">{t('app.fmtZip')}</option>
                       </select>
                     </div>
                   </div>
@@ -361,7 +370,7 @@ const App: React.FC = () => {
                     <div className="space-y-3">
                       <button onClick={processPages} disabled={pages.length === 0} className="w-full flex items-center justify-center py-3 bg-gray-900 text-white rounded-xl text-sm font-bold disabled:bg-gray-100 disabled:text-gray-300 shadow-lg shadow-gray-100 hover:bg-black transition-all group active:scale-95 relative overflow-hidden">
                         <Sparkles className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform relative z-10" />
-                        <span className="relative z-10">开始重构</span>
+                        <span className="relative z-10">{t('app.startFix')}</span>
                         {/* Shimmer effect */}
                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
                       </button>
@@ -376,13 +385,13 @@ const App: React.FC = () => {
                             exportFormat === 'pdf' ? <FileText className="w-4 h-4 mr-2" /> :
                               <Archive className="w-4 h-4 mr-2" />
                         )}
-                        {pages.some(p => p.status === 'completed') ? '导出修复结果' : (compressionLevel === 'none' ? '原样导出' : '导出文件 (仅压缩)')}
+                        {pages.some(p => p.status === 'completed') ? t('app.exportResult') : (compressionLevel === 'none' ? t('app.exportOriginal') : t('app.exportCompressed'))}
                       </button>
                     </div>
                   ) : (
                     <button onClick={handleStopProcessing} className="w-full flex items-center justify-center py-3 bg-red-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-red-100 hover:bg-red-600 transition-all active:scale-95">
                       <StopCircle className="w-4 h-4 mr-2" />
-                      停止
+                      {t('app.stop')}
                     </button>
                   )}
                 </div>

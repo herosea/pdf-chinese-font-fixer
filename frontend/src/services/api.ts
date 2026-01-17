@@ -33,8 +33,8 @@ api.interceptors.response.use(
 
 // Auth API
 export const authApi = {
-    googleLogin: async (token: string) => {
-        const response = await api.post('/auth/google', { token });
+    googleLogin: async (code: string) => {
+        const response = await api.post('/auth/google', { code });
         const { access_token, user } = response.data;
         localStorage.setItem('auth_token', access_token);
         return user;
@@ -88,6 +88,14 @@ export const filesApi = {
             file_id: fileId,
             pages,
         });
+        return response.data;
+    },
+};
+
+// Contact API
+export const contactApi = {
+    submitMessage: async (data: { email: string; subject: string; message: string }) => {
+        const response = await api.post('/contact/', data);
         return response.data;
     },
 };

@@ -5,6 +5,7 @@ from functools import lru_cache
 class Settings(BaseSettings):
     # Google OAuth
     google_client_id: str = ""
+    google_client_secret: str = ""
     
     # Gemini AI
     gemini_api_key: str = ""

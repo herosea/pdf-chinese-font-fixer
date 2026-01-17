@@ -55,9 +55,9 @@ export const generatePptFromImages = async (pages: PdfPage[], originalFileName: 
   // Remove multiple extensions if present (e.g., .pdf.pptx)
   baseName = baseName.replace(/(\.pdf|\.pptx|\.ppt|\.zip)+$/i, '');
   // Remove _compressed or _fixed suffixes if we are adding them again
-  baseName = baseName.replace(/(_修复版|_压缩版)+$/g, '');
+  baseName = baseName.replace(/(_修复版|_压缩版|_fixed|_compressed)+$/g, '');
 
-  const suffix = originalFileName.includes('修复版') || originalFileName.includes('压缩版') ? '' : '_fixed';
+  const suffix = originalFileName.match(/(_修复版|_压缩版|_fixed|_compressed)/) ? '' : '_fixed';
   const outputName = `${baseName}${suffix}.pptx`;
 
   await pptx.writeFile({ fileName: outputName });

@@ -2,8 +2,12 @@
 node_modules/
 __pycache__/
 *.py[cod]
+*.py[cod]
 *.so
 .Python
+backend.db
+backend/backend.db
+uploads/
 env/
 venv/
 .venv/

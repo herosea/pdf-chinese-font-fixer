@@ -5,7 +5,7 @@ from datetime import datetime
 
 # Auth schemas
 class GoogleAuthRequest(BaseModel):
-    token: str
+    code: str
 
 
 class TokenResponse(BaseModel):
@@ -55,6 +55,24 @@ class ProcessStatusResponse(BaseModel):
     pages_processed: int
     total_pages: int
     current_page: Optional[int] = None
+
+
+# Contact schemas
+class ContactMessageCreate(BaseModel):
+    email: EmailStr
+    subject: str
+    message: str
+
+
+class ContactMessageResponse(BaseModel):
+    id: int
+    email: str
+    subject: str
+    message: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 
 # Payment schemas
